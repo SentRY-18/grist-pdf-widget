@@ -2,253 +2,707 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Export PDF en Lot</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; line-height: 1.4; }
-    
-    /* =========================================================
-       INTERFACE UTILISATEUR
-       ========================================================= */
-    #ui-zone { max-width: 800px; margin: 20px auto; background: white; padding: 25px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
-    h1 { color: #333; margin-bottom: 20px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
-    .form-group { margin-bottom: 20px; }
-    .label-with-info { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; color: #555; font-weight: 500; font-size: 14px; }
-    .input-row { display: flex; gap: 15px; margin-bottom: 15px; }
-    .input-col { flex: 1; }
-    
-    input[type="text"], input[type="number"] { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; display: block; background: #fafafa; transition: all 0.2s; }
-    input:focus { outline: none; border-color: #667eea; background: white; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
-    
-    button { background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: 500; transition: background 0.2s; display: inline-flex; align-items: center; gap: 8px; width: 100%; justify-content: center; margin-top: 10px; }
-    button:hover { background: #5568d3; }
+    /* ── RESET & BASE ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    #status { margin-top: 15px; font-size: 13px; text-align: center; font-weight: 500; color: #666; }
-
-    /* =========================================================
-       ZONE DE RENDU INVISIBLE (POUR LE PDF)
-       ========================================================= */
-    #render-zone {
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: -9999;
-      opacity: 0.01; /* Presque invisible, mais suffisant pour que html2canvas puisse le lire */
-      pointer-events: none;
-      width: 210mm;
-      background: white;
+    :root {
+      --bg:        #f0f2f7;
+      --surface:   #ffffff;
+      --border:    #e2e5ed;
+      --text:      #1a1d27;
+      --muted:     #6b7280;
+      --accent:    #4f5de8;
+      --accent-h:  #3b49d4;
+      --success:   #10b981;
+      --warn:      #f59e0b;
+      --error:     #ef4444;
+      --radius:    8px;
+      --shadow:    0 2px 12px rgba(0,0,0,0.08);
     }
 
-    /* CSS OFFICIEL DU WIDGET MARKDOWN DE GRIST POUR UN RENDU IDENTIQUE */
-    .editor-preview { font-family: sans-serif; line-height: 1.4; color: black; padding: 10mm 15mm; }
-    .editor-preview code { background-color: #dfe9ff; padding: 0 4px; border-radius: 4px; color: black; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── LAYOUT ─────────────────────────────────────────────── */
+    #app {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── CARD ───────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+    }
+
+    /* ── HEADER ─────────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 18px;
+    }
+    .header-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #4f5de8, #7c86f7);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .header-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .header-sub   { font-size: 11px; color: var(--muted); }
+
+    /* ── SECTION TITLE ──────────────────────────────────────── */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    /* ── FIELDS ─────────────────────────────────────────────── */
+    .field { margin-bottom: 12px; }
+    .field label {
+      display: block;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--text);
+      margin-bottom: 5px;
+    }
+    .field label span { font-weight: 400; color: var(--muted); }
+    .field input[type="text"],
+    .field input[type="number"],
+    .field select {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fafbfc;
+      color: var(--text);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      appearance: none;
+    }
+    .field input:focus,
+    .field select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,93,232,0.12);
+      background: #fff;
+    }
+    .field input::placeholder { color: #bcc2cc; }
+
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── STATUS BADGE ───────────────────────────────────────── */
+    #column-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #f5f5f5;
+      color: var(--muted);
+      margin-bottom: 14px;
+      transition: all 0.2s;
+    }
+    #column-status.ready   { background: #ecfdf5; color: var(--success); }
+    #column-status.waiting { background: #fffbeb; color: var(--warn); }
+    #column-status.error   { background: #fef2f2; color: var(--error); }
+    #column-status .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+    /* ── BUTTON ─────────────────────────────────────────────── */
+    #generateBtn {
+      width: 100%;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #4f5de8, #6b78f0);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 4px 14px rgba(79,93,232,0.35);
+      letter-spacing: 0.01em;
+      margin-top: 4px;
+    }
+    #generateBtn:hover:not(:disabled) {
+      opacity: 0.92;
+      box-shadow: 0 6px 18px rgba(79,93,232,0.45);
+    }
+    #generateBtn:active:not(:disabled) { transform: scale(0.98); }
+    #generateBtn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* ── PROGRESS ───────────────────────────────────────────── */
+    #progress-area { display: none; margin-top: 14px; }
+    #progress-area.visible { display: block; }
+
+    .progress-bar-wrap {
+      height: 6px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4f5de8, #7c86f7);
+      border-radius: 99px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+    .progress-label { color: var(--text); font-weight: 600; }
+    .progress-count { color: var(--muted); }
+
+    /* ── RESULT MESSAGE ─────────────────────────────────────── */
+    #result-msg {
+      display: none;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 12px;
+      text-align: center;
+    }
+    #result-msg.success { display: block; background: #ecfdf5; color: var(--success); border: 1px solid #a7f3d0; }
+    #result-msg.error   { display: block; background: #fef2f2; color: var(--error);   border: 1px solid #fca5a5; }
+    #result-msg.warn    { display: block; background: #fffbeb; color: var(--warn);    border: 1px solid #fde68a; }
+
+    /* ── DIVIDER ────────────────────────────────────────────── */
+    hr { border: none; border-top: 1px solid var(--border); }
+
+    /* ── INFO CALLOUT ───────────────────────────────────────── */
+    .callout {
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #f0f4ff;
+      border: 1px solid #c7d0fa;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #4050b5;
+      line-height: 1.5;
+    }
+    .callout .ico { flex-shrink: 0; margin-top: 1px; }
+
+    /* ── RENDER ZONE (hors écran mais lisible par html2canvas) ─ */
+    #render-zone {
+      position: fixed;
+      top: 0;
+      left: -9999px;
+      width: 210mm;
+      background: white;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    /* ── GRIST MARKDOWN CSS (rendu identique à l'aperçu Grist) ─ */
+    .editor-preview {
+      font-family: sans-serif;
+      line-height: 1.5;
+      color: black;
+      padding: 12mm 15mm;
+      word-wrap: break-word;
+    }
+    .editor-preview h1 { font-size: 22px; margin: 16px 0 8px; }
+    .editor-preview h2 { font-size: 18px; margin: 14px 0 7px; }
+    .editor-preview h3 { font-size: 15px; margin: 12px 0 6px; }
+    .editor-preview p  { margin: 8px 0; }
+    .editor-preview ul, .editor-preview ol { margin: 8px 0 8px 20px; }
+    .editor-preview li { margin: 3px 0; }
+    .editor-preview code { background-color: #dfe9ff; padding: 0 4px; border-radius: 4px; color: black; font-size: 0.9em; }
     .editor-preview blockquote { border-left: 4px solid #ddd; margin: 0; padding: 0 1rem; color: #666; }
-    .editor-preview pre { background-color: #eef3ff; padding: 8px; border-radius: 4px; }
+    .editor-preview pre { background-color: #eef3ff; padding: 8px; border-radius: 4px; overflow-x: auto; }
     .editor-preview pre code { background-color: unset; padding: unset; border-radius: unset; }
-    .editor-preview hr { margin-top: 2rem; margin-bottom: 2rem; }
-    .editor-preview table { width: 100%; margin: 2rem 0; border-spacing: 0; border: 1px solid lightgrey; border-left: none; border-top: none; border-collapse: collapse; }
-    .editor-preview table th, .editor-preview table td { border: 1px solid lightgrey; padding: 0.5rem 1rem; border-right: none; border-bottom: none; }
-    .editor-preview table th:empty, .editor-preview table td:empty { height: 0px; padding: 0px; border-top: none; }
+    .editor-preview hr { margin: 1.5rem 0; border: none; border-top: 1px solid #ddd; }
+    .editor-preview img { max-width: 100%; height: auto; display: block; margin: 8px 0; }
+    .editor-preview table {
+      width: 100%; margin: 1rem 0;
+      border-collapse: collapse;
+      border: 1px solid lightgrey;
+    }
+    .editor-preview table th,
+    .editor-preview table td {
+      border: 1px solid lightgrey;
+      padding: 0.4rem 0.8rem;
+      text-align: left;
+    }
+    .editor-preview table th { background: #f0f2f7; font-weight: 700; }
+    .editor-preview table th:empty,
+    .editor-preview table td:empty { height: 0; padding: 0; border-top: none; }
+
+    /* ── PAGE BREAK SUPPORT ─────────────────────────────────── */
+    .editor-preview .page-break,
+    .editor-preview [style*="page-break-before: always"],
+    .editor-preview [style*="page-break-before:always"] {
+      page-break-before: always !important;
+      break-before: page !important;
+    }
   </style>
 </head>
 
 <body>
-  <div id="ui-zone">
-    <h1>📦 Export PDF en Lot (ZIP)</h1>
+  <div id="app">
 
-    <div class="form-group">
-      <div class="input-row">
-        <div class="input-col">
-          <label class="label-with-info">De la ligne N° :</label>
-          <input type="number" id="startRow" value="1" min="1">
-        </div>
-        <div class="input-col">
-          <label class="label-with-info">À la ligne N° :</label>
-          <input type="number" id="endRow" value="5" min="1">
+    <!-- HEADER CARD -->
+    <div class="card">
+      <div class="header">
+        <div class="header-icon">📦</div>
+        <div>
+          <div class="header-title">Export PDF en Lot</div>
+          <div class="header-sub">Génère des PDF depuis une colonne HTML et les regroupe en ZIP</div>
         </div>
       </div>
 
-      <label class="label-with-info" for="namePattern">
-        Nom des documents PDF :
-      </label>
-      <input type="text" id="namePattern" placeholder="Ex: PV_{Nom_Etablissement}">
+      <!-- STATUS MAPPING -->
+      <div id="column-status" class="waiting">
+        <span class="dot"></span>
+        <span id="column-status-text">En attente du mapping de la colonne HTML…</span>
+      </div>
 
-      <button id="generateBtn">Générer le dossier ZIP</button>
-      <div id="status">En attente du mapping de la colonne HTML à droite...</div>
+      <!-- PLAGE DE LIGNES -->
+      <div class="section-title">Plage de lignes</div>
+      <div class="row-2">
+        <div class="field">
+          <label>De la ligne N°</label>
+          <input type="number" id="startRow" value="1" min="1">
+        </div>
+        <div class="field">
+          <label>À la ligne N°</label>
+          <input type="number" id="endRow"   value="10" min="1">
+        </div>
+      </div>
+      <div class="hint" id="row-hint">— lignes disponibles : détection en cours…</div>
+
+      <hr style="margin: 16px 0;">
+
+      <!-- NOMMAGE DES FICHIERS -->
+      <div class="section-title">Nom des fichiers PDF</div>
+      <div class="field">
+        <label>Modèle de nom <span>(variables : {Nom_Colonne})</span></label>
+        <input type="text" id="namePattern" placeholder="Ex: PV_{Nom_Etablissement}_{Annee}">
+      </div>
+      <div class="callout">
+        <span class="ico">💡</span>
+        <span>
+          Utilisez <strong>{Nom_Colonne}</strong> pour insérer la valeur d'une colonne dans le nom.
+          Les caractères spéciaux sont remplacés par <code>_</code>.
+          Un identifiant unique est ajouté automatiquement pour éviter les doublons.
+        </span>
+      </div>
+
+      <hr style="margin: 16px 0;">
+
+      <!-- OPTIONS AVANCÉES -->
+      <div class="section-title">Options</div>
+      <div class="row-2">
+        <div class="field">
+          <label>Qualité image <span>(0.1–1.0)</span></label>
+          <input type="number" id="imgQuality" value="0.95" min="0.1" max="1.0" step="0.05">
+        </div>
+        <div class="field">
+          <label>Délai entre PDFs <span>(ms)</span></label>
+          <input type="number" id="delayBetween" value="300" min="0" max="2000" step="50">
+        </div>
+      </div>
+
+      <!-- BOUTON GÉNÉRER -->
+      <button id="generateBtn" disabled>
+        <span id="btn-icon">⚡</span>
+        <span id="btn-label">Générer le dossier ZIP</span>
+      </button>
+
+      <!-- BARRE DE PROGRESSION -->
+      <div id="progress-area">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-text">
+          <span class="progress-label" id="progress-label">Initialisation…</span>
+          <span class="progress-count" id="progress-count">0 / 0</span>
+        </div>
+      </div>
+
+      <!-- MESSAGE RÉSULTAT -->
+      <div id="result-msg"></div>
     </div>
+
   </div>
 
+  <!-- ZONE DE RENDU HORS ÉCRAN -->
   <div id="render-zone"></div>
 
   <script>
-    grist.ready({ 
+  (function() {
+    'use strict';
+
+    /* ── ÉTAT ──────────────────────────────────────────────── */
+    let mappedRecords  = [];   // Enregistrements mappés (avec colonne HTML)
+    let allTableRows   = [];   // Toutes les colonnes (pour le renommage)
+    let htmlColumnKey  = null; // Clé de la colonne HTML mappée
+    let isGenerating   = false;
+
+    /* ── ÉLÉMENTS DOM ──────────────────────────────────────── */
+    const $  = id => document.getElementById(id);
+    const generateBtn   = $('generateBtn');
+    const namePattern   = $('namePattern');
+    const progressArea  = $('progress-area');
+    const progressFill  = $('progress-fill');
+    const progressLabel = $('progress-label');
+    const progressCount = $('progress-count');
+    const resultMsg     = $('result-msg');
+    const renderZone    = $('render-zone');
+
+    /* ── GRIST INIT ────────────────────────────────────────── */
+    grist.ready({
       requiredAccess: 'full',
-      columns: [{ name: "col_html", title: "Colonne HTML", optional: false, type: "Text" }]
+      columns: [
+        {
+          name: 'col_html',
+          title: 'Colonne HTML',
+          description: 'Colonne contenant le contenu HTML à convertir en PDF',
+          optional: false,
+          type: 'Text'
+        }
+      ]
     });
 
-    const generateBtn = document.querySelector("#generateBtn");
-    const namePattern = document.querySelector("#namePattern");
-    const statusDiv = document.querySelector("#status");
-    
-    let mappedData = [];
-    let allDataRows = [];
-    let htmlColumnName = null;
+    /* ── RÉCEPTION DES DONNÉES MAPPÉES ─────────────────────── */
+    grist.onRecords(async (records, mappings) => {
+      mappedRecords = records || [];
 
-    // 1. Récupération des données
-    grist.onRecords(async (records) => {
-      mappedData = records;
-      
-      if (records.length > 0) {
-        const keys = Object.keys(records[0]).filter(key => key !== 'id');
-        if (keys.length > 0) {
-          htmlColumnName = keys[0];
-          statusDiv.innerText = "✅ Prêt à générer !";
-          statusDiv.style.color = "#10b981";
-        }
+      // Déterminer la clé de la colonne HTML à partir du mapping
+      if (mappings && mappings.col_html) {
+        htmlColumnKey = mappings.col_html;
+      } else if (records.length > 0) {
+        const keys = Object.keys(records[0]).filter(k => k !== 'id');
+        htmlColumnKey = keys[0] || null;
       }
-      
+
+      updateColumnStatus();
+
+      // Mise à jour du hint de plage
+      $('row-hint').textContent = `— ${mappedRecords.length} ligne(s) disponible(s) dans la sélection actuelle`;
+      $('endRow').value = Math.min(parseInt($('endRow').value) || 10, mappedRecords.length);
+
+      // Chargement de toutes les colonnes de la table pour le renommage
       try {
-        const table = await grist.getTable();
-        const tableName = await table._platform.getTableId();
-        const allData = await grist.docApi.fetchTable(tableName);
-        
-        allDataRows = [];
-        const numRows = allData.id.length;
-        const columnNames = Object.keys(allData);
-        
+        await loadAllTableData();
+      } catch (e) {
+        console.warn('Chargement des données complètes échoué :', e);
+      }
+    });
+
+    /* ── CHARGEMENT DE TOUTES LES DONNÉES DE LA TABLE ──────── */
+    async function loadAllTableData() {
+      try {
+        const tableInfo = await grist.getTable();
+        // Compatibilité avec différentes versions de l'API Grist
+        let tableName;
+        if (typeof tableInfo.getTableId === 'function') {
+          tableName = await tableInfo.getTableId();
+        } else if (tableInfo._platform && typeof tableInfo._platform.getTableId === 'function') {
+          tableName = await tableInfo._platform.getTableId();
+        } else {
+          // Fallback : on travaille uniquement avec les enregistrements mappés
+          allTableRows = mappedRecords;
+          return;
+        }
+
+        const rawData = await grist.docApi.fetchTable(tableName);
+        const colNames = Object.keys(rawData);
+        const numRows  = rawData.id.length;
+
+        allTableRows = [];
         for (let i = 0; i < numRows; i++) {
           const row = {};
-          columnNames.forEach(colName => {
-            row[colName] = allData[colName][i];
-          });
-          allDataRows.push(row);
+          colNames.forEach(col => { row[col] = rawData[col][i]; });
+          allTableRows.push(row);
         }
-      } catch (error) {
-        console.error("Erreur de récupération :", error);
+      } catch (err) {
+        console.warn('fetchTable échoué, fallback sur mappedRecords :', err);
+        allTableRows = mappedRecords;
       }
-    });
-
-    // 2. Moteur de renommage dynamique
-    function generateFileName(row, index) {
-      const pattern = namePattern.value.trim();
-      if (!pattern) return `Document_${index + 1}`;
-      
-      const variables = pattern.match(/\{([^}]+)\}/g);
-      if (!variables) return `${pattern}_${index + 1}`;
-      
-      let fileName = pattern;
-      for (let variable of variables) {
-        const columnId = variable.slice(1, -1).trim();
-        if (columnId in row) {
-          const value = (row[columnId] || '').toString().trim();
-          fileName = fileName.replace(variable, value);
-        }
-      }
-      return fileName.replace(/[^a-z0-9À-ÿ- ]/gi, '_').replace(/\s+/g, ' ').trim();
     }
 
-    // 3. Processus de génération (Sécurisé contre les plantages mémoire)
+    /* ── MISE À JOUR DU BADGE STATUT ───────────────────────── */
+    function updateColumnStatus() {
+      const statusEl  = $('column-status');
+      const statusTxt = $('column-status-text');
+
+      if (htmlColumnKey && mappedRecords.length > 0) {
+        statusEl.className = 'ready';
+        statusTxt.textContent = `✓ Colonne mappée : "${htmlColumnKey}" — ${mappedRecords.length} enregistrement(s) chargé(s)`;
+        generateBtn.disabled = false;
+      } else if (htmlColumnKey) {
+        statusEl.className = 'waiting';
+        statusTxt.textContent = 'Colonne mappée, aucune donnée dans la table.';
+        generateBtn.disabled = true;
+      } else {
+        statusEl.className = 'waiting';
+        statusTxt.textContent = 'En attente du mapping de la colonne HTML dans le panneau de configuration →';
+        generateBtn.disabled = true;
+      }
+    }
+
+    /* ── MOTEUR DE RENOMMAGE ───────────────────────────────── */
+    function buildFileName(rowData, fallbackIndex) {
+      const pattern = namePattern.value.trim();
+      const base    = pattern || `Document_${fallbackIndex + 1}`;
+
+      // Remplace chaque {Variable} par la valeur de la colonne correspondante
+      const resolved = base.replace(/\{([^}]+)\}/g, (match, colId) => {
+        const colKey = colId.trim();
+        if (colKey in rowData) {
+          return String(rowData[colKey] ?? '').trim();
+        }
+        return match; // Laisse la variable intacte si colonne inconnue
+      });
+
+      // Nettoyage : seuls alphanum, tirets, underscores, espaces, accents
+      return resolved
+        .replace(/[^\w\sÀ-ÿ\-]/gi, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+        .slice(0, 120) || `Document_${fallbackIndex + 1}`;
+    }
+
+    /* ── ATTENTE IMAGES ─────────────────────────────────────── */
+    function waitForImages(container, timeout = 2000) {
+      const images = Array.from(container.querySelectorAll('img'));
+      if (!images.length) return Promise.resolve();
+      return Promise.all(images.map(img =>
+        new Promise(resolve => {
+          if (img.complete && img.naturalWidth > 0) return resolve();
+          img.onload  = resolve;
+          img.onerror = resolve;
+          setTimeout(resolve, timeout);
+        })
+      ));
+    }
+
+    /* ── HELPERS UI ─────────────────────────────────────────── */
+    function setProgress(current, total, label) {
+      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+      progressFill.style.width  = pct + '%';
+      progressLabel.textContent = label;
+      progressCount.textContent = `${current} / ${total}`;
+    }
+
+    function showResult(type, msg) {
+      resultMsg.className = type;
+      resultMsg.textContent = msg;
+      resultMsg.style.display = 'block';
+    }
+
+    function hideResult() {
+      resultMsg.style.display = 'none';
+      resultMsg.className = '';
+    }
+
+    /* ── CONVERSION D'UN HTML EN BLOB PDF ───────────────────── */
+    async function htmlToBlob(htmlContent, fileName) {
+      // Injection dans la zone de rendu hors écran
+      renderZone.innerHTML = `<div class="editor-preview">${htmlContent}</div>`;
+      await waitForImages(renderZone);
+      // Petit délai pour laisser le navigateur appliquer le CSS
+      await new Promise(r => setTimeout(r, 150));
+
+      const quality = parseFloat($('imgQuality').value) || 0.95;
+
+      const opt = {
+        margin:      0,
+        filename:    fileName,
+        image:       { type: 'jpeg', quality: Math.min(1, Math.max(0.1, quality)) },
+        html2canvas: {
+          scale:     2.5,
+          useCORS:   true,
+          logging:   false,
+          scrollX:   0,
+          scrollY:   0,
+          windowWidth: 794  // ~210mm à 96dpi
+        },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:   { mode: ['css', 'legacy'], before: '.page-break, [style*="page-break-before: always"]' }
+      };
+
+      const blob = await html2pdf()
+        .set(opt)
+        .from(renderZone.firstElementChild)
+        .output('blob');
+
+      renderZone.innerHTML = '';
+      return blob;
+    }
+
+    /* ── BOUCLE PRINCIPALE DE GÉNÉRATION ───────────────────── */
     generateBtn.addEventListener('click', async () => {
-      if (!htmlColumnName || mappedData.length === 0 || allDataRows.length === 0) {
-        alert("Configuration incomplète ou données manquantes.");
+      if (isGenerating) return;
+
+      hideResult();
+
+      const start = parseInt($('startRow').value);
+      const end   = parseInt($('endRow').value);
+
+      if (isNaN(start) || isNaN(end) || start < 1 || end < start) {
+        showResult('error', '⚠️ Plage de lignes invalide. Vérifiez les champs "De" et "À".');
         return;
       }
 
-      const start = parseInt(document.getElementById('startRow').value);
-      const end = parseInt(document.getElementById('endRow').value);
-      if (isNaN(start) || isNaN(end) || start > end) return;
-
-      const rowsToProcess = mappedData.slice(start - 1, end);
-      if (rowsToProcess.length === 0) {
-        alert("Aucun document trouvé dans cette plage.");
+      const slice = mappedRecords.slice(start - 1, end);
+      if (slice.length === 0) {
+        showResult('warn', '⚠️ Aucun enregistrement trouvé dans cette plage.');
         return;
       }
 
-      const renderZone = document.getElementById('render-zone');
-      const zip = new JSZip();
-      let pdfsGenerated = 0;
+      if (!htmlColumnKey) {
+        showResult('error', '⚠️ Aucune colonne HTML mappée. Configurez le widget →');
+        return;
+      }
 
+      // ── Début de la génération ──────────────────────────────
+      isGenerating = true;
       generateBtn.disabled = true;
-      generateBtn.style.opacity = "0.7";
+      $('btn-label').textContent = 'Génération en cours…';
+      $('btn-icon').textContent  = '⏳';
+      progressArea.className = 'visible';
+      setProgress(0, slice.length, 'Initialisation…');
 
-      for (let i = 0; i < rowsToProcess.length; i++) {
+      const zip  = new JSZip();
+      const delay = parseInt($('delayBetween').value) || 300;
+      const usedNames = new Set();
+      let generated = 0;
+      let skipped   = 0;
+
+      for (let i = 0; i < slice.length; i++) {
+        const mappedRow = slice[i];
+        const htmlContent = mappedRow[htmlColumnKey];
+
+        if (!htmlContent || !htmlContent.trim()) {
+          skipped++;
+          setProgress(i + 1, slice.length, `Ligne ignorée (HTML vide) : ${start + i}`);
+          continue;
+        }
+
+        // Récupérer la ligne complète pour le renommage
+        const fullRow = allTableRows.find(r => r.id === mappedRow.id) || mappedRow;
+
+        // Construire un nom de fichier unique
+        let baseName = buildFileName(fullRow, start + i - 1);
+        let finalName = `${baseName}.pdf`;
+        if (usedNames.has(finalName)) {
+          finalName = `${baseName}_${mappedRow.id}.pdf`;
+        }
+        usedNames.add(finalName);
+
+        setProgress(i, slice.length, `Création : ${finalName}`);
+
         try {
-          const mappedRow = rowsToProcess[i];
-          const fullRow = allDataRows.find(r => r.id === mappedRow.id);
-          const htmlContent = mappedRow[htmlColumnName];
-          
-          // Si la cellule est vide, on la saute sans faire planter la boucle
-          if (!htmlContent || !fullRow) continue;
-
-          let cleanFileName = generateFileName(fullRow, i);
-          const uniqueFileName = `PV_${cleanFileName}_ID${mappedRow.id}.pdf`;
-
-          pdfsGenerated++;
-          statusDiv.innerText = `⏳ Création PDF ${pdfsGenerated} / ${rowsToProcess.length} ...`;
-          statusDiv.style.color = "#667eea";
-
-          // On injecte le HTML dans la div invisible avec la classe du Markdown Grist
-          renderZone.innerHTML = `<div class="editor-preview">${htmlContent}</div>`;
-
-          // Attente du chargement des images (max 1.5 seconde)
-          const images = renderZone.querySelectorAll('img');
-          const imagePromises = Array.from(images).map(img => {
-              return new Promise((resolve) => {
-                  if (img.complete) return resolve();
-                  img.onload = resolve;
-                  img.onerror = resolve; 
-                  setTimeout(resolve, 1500); 
-              });
-          });
-          await Promise.all(imagePromises);
-          
-          // Laisser le temps au navigateur d'appliquer le CSS
-          await new Promise(r => setTimeout(r, 200));
-
-          // Capture PDF
-          const opt = {
-            margin:       0, // Les marges sont gérées par le padding de .editor-preview
-            filename:     uniqueFileName,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak:    { mode: ['css', 'legacy'] }
-          };
-
-          const pdfBlob = await html2pdf().set(opt).from(renderZone.firstElementChild).output('blob');
-          if (pdfBlob && pdfBlob.size > 0) {
-            zip.file(uniqueFileName, pdfBlob);
+          const blob = await htmlToBlob(htmlContent, finalName);
+          if (blob && blob.size > 500) {
+            zip.file(finalName, blob);
+            generated++;
+          } else {
+            skipped++;
+            console.warn(`PDF vide pour la ligne ${start + i} (${finalName})`);
           }
-          
-          // NETTOYAGE MÉMOIRE TRÈS IMPORTANT (Empêche le blocage à 2 fichiers)
-          renderZone.innerHTML = '';
-          await new Promise(r => setTimeout(r, 500)); 
-          
-        } catch (error) {
-          console.error(`Erreur création PDF ligne ${i}:`, error);
+        } catch (err) {
+          skipped++;
+          console.error(`Erreur ligne ${start + i} :`, err);
+        }
+
+        setProgress(i + 1, slice.length, `${generated} PDF créés…`);
+
+        // Délai configurable entre chaque PDF (évite les crashes mémoire)
+        if (i < slice.length - 1) {
+          await new Promise(r => setTimeout(r, delay));
         }
       }
 
-      // Téléchargement du ZIP
-      if (pdfsGenerated > 0) {
-        statusDiv.innerText = "📦 Assemblage du ZIP...";
-        const zipBlob = await zip.generateAsync({type:"blob"});
-        saveAs(zipBlob, `Export_Documents_PDF.zip`);
-        
-        statusDiv.innerText = `🎉 Terminé ! (${pdfsGenerated} PDF générés)`;
-        statusDiv.style.color = "#10b981";
+      // ── Assemblage et téléchargement du ZIP ────────────────
+      if (generated > 0) {
+        setProgress(slice.length, slice.length, 'Assemblage du ZIP…');
+        const zipBlob = await zip.generateAsync({
+          type:               'blob',
+          compression:        'DEFLATE',
+          compressionOptions: { level: 6 }
+        });
+
+        const now  = new Date();
+        const date = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+        saveAs(zipBlob, `Export_PDF_${date}.zip`);
+
+        const msg = skipped > 0
+          ? `🎉 Terminé ! ${generated} PDF générés (${skipped} ligne(s) ignorée(s) car HTML vide ou erreur).`
+          : `🎉 Terminé ! ${generated} PDF générés et regroupés dans le ZIP.`;
+        showResult('success', msg);
+        setProgress(slice.length, slice.length, 'ZIP téléchargé !');
       } else {
-        statusDiv.innerText = "⚠️ Aucun HTML valide n'a été trouvé dans ces lignes.";
-        statusDiv.style.color = "#ef4444";
+        showResult('error', '❌ Aucun PDF valide n\'a pu être créé. Vérifiez le contenu HTML des lignes sélectionnées.');
       }
-      
-      generateBtn.disabled = false;
-      generateBtn.style.opacity = "1";
+
+      // ── Nettoyage et réactivation ──────────────────────────
+      renderZone.innerHTML = '';
+      isGenerating = false;
+      generateBtn.disabled = !htmlColumnKey;
+      $('btn-label').textContent = 'Générer le dossier ZIP';
+      $('btn-icon').textContent  = '⚡';
     });
+
+  })();
   </script>
 </body>
 </html>
