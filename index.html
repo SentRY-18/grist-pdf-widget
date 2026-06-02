@@ -99,8 +99,8 @@
       }
 
       // On filtre les lignes envoyées par Grist selon les IDs choisis
-      const selectedRecords = tableRecords.filter(r => r.id >= start && r.id <= end);
-
+      const selectedRecords = tableRecords.slice(start - 1, end);
+      
       if (selectedRecords.length === 0) {
         status.innerText = "⚠️ Aucun document trouvé dans cette plage.";
         status.style.color = "orange";
