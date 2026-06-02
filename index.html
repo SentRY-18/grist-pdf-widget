@@ -14,12 +14,7 @@
     button { width: 100%; padding: 12px; background: #0056b3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; transition: background 0.3s; }
     button:hover { background: #004494; }
     #status { margin-top: 15px; font-size: 13px; text-align: center; min-height: 20px; font-weight: bold; }
-    
-    /* Message d'alerte si les colonnes ne sont pas sélectionnées */
     #mapping-warning { display: none; background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; border: 1px solid #ffeeba; }
-    
-    /* Conteneur invisible pour charger le HTML avant conversion */
-    #render-container { display: none; }
   </style>
 </head>
 <body>
@@ -32,24 +27,21 @@
     </div>
 
     <div class="input-group">
-      <label>De la ligne N° (ID) :</label>
+      <label>De la ligne N° (Position) :</label>
       <input type="number" id="start" value="1" min="1">
     </div>
     <div class="input-group">
-      <label>À la ligne N° (ID) :</label>
+      <label>À la ligne N° (Position) :</label>
       <input type="number" id="end" value="5" min="1">
     </div>
     <button id="generateBtn">Générer les PDFs</button>
     <div id="status">En attente de Grist...</div>
   </div>
 
-  <div id="render-container"></div>
-
   <script>
     let tableRecords = [];
     let tableMappings = null;
 
-    // 1. On prévient Grist que notre widget attend 2 colonnes sélectionnables
     grist.ready({
       columns: [
         { name: "htmlCol", type: "Text", title: "Colonne HTML du document" },
@@ -58,7 +50,6 @@
       requiredAccess: 'read'
     });
 
-    // 2. Grist nous envoie les données de la table ET le choix des colonnes de l'utilisateur
     grist.onRecords(function(records, mappings) {
       tableRecords = records;
       tableMappings = mappings;
@@ -66,7 +57,6 @@
       const warning = document.getElementById('mapping-warning');
       const status = document.getElementById('status');
 
-      // On vérifie si l'utilisateur a bien sélectionné les colonnes dans Grist
       if (!mappings || !mappings.htmlCol || !mappings.nameCol) {
         warning.style.display = 'block';
         status.innerText = "Configuration incomplète.";
@@ -76,12 +66,10 @@
       }
     });
 
-    // 3. Action lors du clic sur le bouton "Générer"
     document.getElementById('generateBtn').addEventListener('click', async () => {
       const warning = document.getElementById('mapping-warning');
       const status = document.getElementById('status');
 
-      // Sécurité : si les colonnes ne sont pas mappées
       if (!tableMappings || !tableMappings.htmlCol || !tableMappings.nameCol) {
         warning.style.display = 'block';
         status.innerText = "❌ Associez d'abord les colonnes à droite !";
@@ -98,7 +86,6 @@
         return;
       }
 
-      // On filtre les lignes envoyées par Grist selon les IDs choisis
       const selectedRecords = tableRecords.slice(start - 1, end);
       
       if (selectedRecords.length === 0) {
@@ -107,45 +94,56 @@
         return;
       }
 
-      const renderContainer = document.getElementById('render-container');
+      let pdfsGenerated = 0;
 
-      // Boucle de génération des PDF
       for (let i = 0; i < selectedRecords.length; i++) {
         const rec = selectedRecords[i];
         
-        // On utilise les colonnes choisies par l'utilisateur
         const htmlContent = rec[tableMappings.htmlCol];
-        let fileName = rec[tableMappings.nameCol] || `Document_${rec.id}`;
+        let fileName = rec[tableMappings.nameCol] || `Document_${i+1}`;
 
-        if (!htmlContent) continue; // Si la case HTML est vide, on passe à la ligne suivante
+        if (!htmlContent) continue; 
 
-        status.innerText = `⏳ Création PDF ${i + 1} / ${selectedRecords.length} (${fileName})...`;
+        pdfsGenerated++;
+        status.innerText = `⏳ Création PDF ${pdfsGenerated} / ${selectedRecords.length} (${fileName})...`;
         status.style.color = "#333";
 
-        // On injecte le HTML de Grist dans notre conteneur invisible
-        renderContainer.innerHTML = htmlContent;
-        renderContainer.style.display = 'block';
+        // CORRECTION 1 : On crée un conteneur temporaire "frais" pour chaque PDF
+        const tempContainer = document.createElement('div');
+        tempContainer.innerHTML = htmlContent;
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.top = '-10000px'; // On le cache hors de l'écran
+        tempContainer.style.width = '210mm'; // Format A4
+        document.body.appendChild(tempContainer);
 
-        // Options du PDF
         const opt = {
           margin:       0,
-          filename:     `PV_${fileName.toString().replace(/[^a-z0-9]/gi, '_')}.pdf`,
+          filename:     `PV_${String(fileName).replace(/[^a-z0-9À-ÿ-]/gi, '_')}.pdf`,
           image:        { type: 'jpeg', quality: 0.98 },
-          html2canvas:  { scale: 2, useCORS: true },
+          html2canvas:  { scale: 2, useCORS: true, logging: false },
           jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
-        // On attend que la librairie génère et télécharge le fichier
-        await html2pdf().set(opt).from(renderContainer).save();
+        // CORRECTION 2 : Un filet de sécurité (try/catch) pour éviter que tout bloque
+        try {
+          await html2pdf().set(opt).from(tempContainer).save();
+        } catch (error) {
+          console.error(`Erreur lors de la génération du PDF ${fileName}:`, error);
+        }
+
+        // On supprime le conteneur une fois le PDF généré
+        document.body.removeChild(tempContainer);
         
-        renderContainer.style.display = 'none';
-        
-        // Petite pause de sécurité pour que le navigateur ne bloque pas les téléchargements multiples
-        await new Promise(r => setTimeout(r, 1000)); 
+        // CORRECTION 3 : On attend 1.5 seconde entre chaque téléchargement
+        await new Promise(r => setTimeout(r, 1500)); 
       }
 
-      status.innerText = "🎉 Terminé ! Les PDFs ont été téléchargés.";
-      status.style.color = "green";
+      if (pdfsGenerated > 0) {
+        status.innerText = `🎉 Terminé ! ${pdfsGenerated} PDFs téléchargés.`;
+        status.style.color = "green";
+      } else {
+        status.innerText = "⚠️ Aucun HTML valide trouvé.";
+      }
     });
   </script>
 </body>
