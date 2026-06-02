@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; }
+    .container { max-width: 400px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    h3 { text-align: center; margin-top: 0; color: #0056b3; }
+    .input-group { margin-bottom: 15px; }
+    label { font-weight: bold; font-size: 13px; }
+    input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { width: 100%; padding: 12px; background: #0056b3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; transition: background 0.3s; }
+    button:hover { background: #004494; }
+    #status { margin-top: 15px; font-size: 13px; text-align: center; min-height: 20px; font-weight: bold; }
+    
+    /* Message d'alerte si les colonnes ne sont pas sélectionnées */
+    #mapping-warning { display: none; background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; border: 1px solid #ffeeba; }
+    
+    /* Conteneur invisible pour charger le HTML avant conversion */
+    #render-container { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h3>🖨️ Générateur PDF (Lot)</h3>
+    
+    <div id="mapping-warning">
+      ⚠️ Veuillez d'abord sélectionner les colonnes dans le panneau de droite de Grist.
+    </div>
+
+    <div class="input-group">
+      <label>De la ligne N° (ID) :</label>
+      <input type="number" id="start" value="1" min="1">
+    </div>
+    <div class="input-group">
+      <label>À la ligne N° (ID) :</label>
+      <input type="number" id="end" value="5" min="1">
+    </div>
+    <button id="generateBtn">Générer les PDFs</button>
+    <div id="status">En attente de Grist...</div>
+  </div>
+
+  <div id="render-container"></div>
+
+  <script>
+    let tableRecords = [];
+    let tableMappings = null;
+
+    // 1. On prévient Grist que notre widget attend 2 colonnes sélectionnables
+    grist.ready({
+      columns: [
+        { name: "htmlCol", type: "Text", title: "Colonne HTML du document" },
+        { name: "nameCol", type: "Text", title: "Nom du fichier PDF" }
+      ],
+      requiredAccess: 'read'
+    });
+
+    // 2. Grist nous envoie les données de la table ET le choix des colonnes de l'utilisateur
+    grist.onRecords(function(records, mappings) {
+      tableRecords = records;
+      tableMappings = mappings;
+
+      const warning = document.getElementById('mapping-warning');
+      const status = document.getElementById('status');
+
+      // On vérifie si l'utilisateur a bien sélectionné les colonnes dans Grist
+      if (!mappings || !mappings.htmlCol || !mappings.nameCol) {
+        warning.style.display = 'block';
+        status.innerText = "Configuration incomplète.";
+      } else {
+        warning.style.display = 'none';
+        status.innerText = "Prêt à générer !";
+      }
+    });
+
+    // 3. Action lors du clic sur le bouton "Générer"
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+      const warning = document.getElementById('mapping-warning');
+      const status = document.getElementById('status');
+
+      // Sécurité : si les colonnes ne sont pas mappées
+      if (!tableMappings || !tableMappings.htmlCol || !tableMappings.nameCol) {
+        warning.style.display = 'block';
+        status.innerText = "❌ Associez d'abord les colonnes à droite !";
+        status.style.color = "red";
+        return;
+      }
+
+      const start = parseInt(document.getElementById('start').value);
+      const end = parseInt(document.getElementById('end').value);
+
+      if (isNaN(start) || isNaN(end) || start > end) {
+        status.innerText = "⚠️ Numéros de ligne invalides.";
+        status.style.color = "red";
+        return;
+      }
+
+      // On filtre les lignes envoyées par Grist selon les IDs choisis
+      const selectedRecords = tableRecords.filter(r => r.id >= start && r.id <= end);
+
+      if (selectedRecords.length === 0) {
+        status.innerText = "⚠️ Aucun document trouvé dans cette plage.";
+        status.style.color = "orange";
+        return;
+      }
+
+      const renderContainer = document.getElementById('render-container');
+
+      // Boucle de génération des PDF
+      for (let i = 0; i < selectedRecords.length; i++) {
+        const rec = selectedRecords[i];
+        
+        // On utilise les colonnes choisies par l'utilisateur
+        const htmlContent = rec[tableMappings.htmlCol];
+        let fileName = rec[tableMappings.nameCol] || `Document_${rec.id}`;
+
+        if (!htmlContent) continue; // Si la case HTML est vide, on passe à la ligne suivante
+
+        status.innerText = `⏳ Création PDF ${i + 1} / ${selectedRecords.length} (${fileName})...`;
+        status.style.color = "#333";
+
+        // On injecte le HTML de Grist dans notre conteneur invisible
+        renderContainer.innerHTML = htmlContent;
+        renderContainer.style.display = 'block';
+
+        // Options du PDF
+        const opt = {
+          margin:       0,
+          filename:     `PV_${fileName.toString().replace(/[^a-z0-9]/gi, '_')}.pdf`,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true },
+          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        // On attend que la librairie génère et télécharge le fichier
+        await html2pdf().set(opt).from(renderContainer).save();
+        
+        renderContainer.style.display = 'none';
+        
+        // Petite pause de sécurité pour que le navigateur ne bloque pas les téléchargements multiples
+        await new Promise(r => setTimeout(r, 1000)); 
+      }
+
+      status.innerText = "🎉 Terminé ! Les PDFs ont été téléchargés.";
+      status.style.color = "green";
+    });
+  </script>
+</body>
+</html>
