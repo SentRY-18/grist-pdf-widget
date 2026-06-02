@@ -8,47 +8,37 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   
   <style>
-    /* UI basique du widget */
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; }
-    .container-widget { max-width: 400px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; margin: 0; padding: 0; }
+    
+    /* Interface du widget */
+    #ui-zone { padding: 25px; max-width: 400px; margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
     h3 { text-align: center; margin-top: 0; color: #0056b3; }
     .input-group { margin-bottom: 15px; }
     label { font-weight: bold; font-size: 13px; }
     input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
     button { width: 100%; padding: 12px; background: #0056b3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; }
     button:hover { background: #004494; }
-    #status { margin-top: 15px; font-size: 13px; text-align: center; min-height: 20px; font-weight: bold; }
+    #status { margin-top: 15px; font-size: 13px; text-align: center; font-weight: bold; }
     #mapping-warning { display: none; background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; border: 1px solid #ffeeba; }
 
-    /* Reprise exacte des classes natives de Grist (editor-preview) pour que le PDF soit identique à l'aperçu */
-    .editor-preview {
-      font-family: sans-serif;
-      line-height: 1.4;
-      background: white;
-      color: black;
-      width: 210mm; /* Force format A4 pour html2canvas */
-      padding: 10mm 15mm; /* Marges d'impression */
-      box-sizing: border-box;
-    }
-    .editor-preview code { background-color: #dfe9ff; padding: 0 4px; border-radius: 4px; color: black; }
-    .editor-preview blockquote { border-left: 4px solid #ddd; margin: 0; padding: 0 1rem; color: #666; }
-    .editor-preview pre { background-color: #eef3ff; padding: 8px; border-radius: 4px; }
-    .editor-preview pre code { background-color: unset; padding: unset; border-radius: unset; }
-    .editor-preview hr { margin-top: 2rem; margin-bottom: 2rem; }
-    .editor-preview table { margin: 2rem 0; border-spacing: 0; border: 1px solid lightgrey; border-left: none; border-top: none; }
-    .editor-preview table th, .editor-preview table td { border: 1px solid lightgrey; padding: 0.5rem 1rem; border-right: none; border-bottom: none; }
-    .editor-preview table th:empty, .editor-preview table td:empty { height: 0px; padding: 0px; border-top: none; }
+    /* Indicateur de chargement plein écran */
+    #fullscreen-loader { display: none; position: fixed; top: 10px; right: 10px; background: #0056b3; color: white; padding: 10px 20px; border-radius: 5px; z-index: 10000; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+
+    /* Zone de rendu (Visible uniquement pendant la génération) */
+    #render-zone { display: none; width: 210mm; background: white; margin: 0; padding: 0; }
+    
+    /* Reprise des styles du Markdown Grist pour les tableaux */
+    .editor-preview { font-family: sans-serif; line-height: 1.4; color: black; }
+    .editor-preview table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .editor-preview table th, .editor-preview table td { border: 1px solid black; padding: 5px; }
   </style>
 </head>
 <body>
 
-  <div class="container-widget">
+  <div id="ui-zone">
     <h3>🖨️ Générateur PDF (Lot ZIP)</h3>
+    <div id="mapping-warning">⚠️ Configuration : associez les colonnes à droite.</div>
     
-    <div id="mapping-warning">
-      ⚠️ Configuration : associez les colonnes à droite.
-    </div>
-
     <div class="input-group">
       <label>De la ligne N° (Position) :</label>
       <input type="number" id="start" value="1" min="1">
@@ -57,158 +47,145 @@
       <label>À la ligne N° (Position) :</label>
       <input type="number" id="end" value="5" min="1">
     </div>
+    
     <button id="generateBtn">Générer le dossier ZIP</button>
     <div id="status">En attente de Grist...</div>
   </div>
 
+  <div id="fullscreen-loader">⏳ Génération en cours...</div>
+  
+  <div id="render-zone" class="editor-preview"></div>
+
   <script>
-    // Variables globales pour le cache de Grist
     let tableRecords = [];
     let tableMappings = null;
 
-    // Déclaration des champs du panneau latéral Grist
     grist.ready({
       columns: [
         { name: "htmlCol", type: "Text", title: "Colonne HTML (Publipostage)" },
         { name: "nameCol", type: "Text", title: "Nommage fichier (Ex: Etablissement)" }
       ],
-      requiredAccess: 'full' // Obligatoire pour récupérer un lot de lignes
+      requiredAccess: 'full'
     });
 
-    // Écouteur de mise à jour des données
     grist.onRecords(function(records, mappings) {
       tableRecords = records;
       tableMappings = mappings;
 
-      const warning = document.getElementById('mapping-warning');
-      const status = document.getElementById('status');
-
-      // Vérif si l'utilisateur a bien mappé les colonnes
       if (!mappings || !mappings.htmlCol || !mappings.nameCol) {
-        warning.style.display = 'block';
-        status.innerText = "Configuration incomplète.";
+        document.getElementById('mapping-warning').style.display = 'block';
+        document.getElementById('status').innerText = "Configuration incomplète.";
       } else {
-        warning.style.display = 'none';
-        status.innerText = "Prêt à générer !";
+        document.getElementById('mapping-warning').style.display = 'none';
+        document.getElementById('status').innerText = "Prêt à générer !";
       }
     });
 
-    // Lancement de l'export
     document.getElementById('generateBtn').addEventListener('click', async () => {
-      const warning = document.getElementById('mapping-warning');
-      const status = document.getElementById('status');
-
-      // Double sécu sur le mapping
-      if (!tableMappings || !tableMappings.htmlCol || !tableMappings.nameCol) {
-        warning.style.display = 'block';
-        status.innerText = "❌ Mapping manquant.";
-        status.style.color = "red";
-        return;
-      }
-
-      // Récupération des inputs
+      if (!tableMappings || !tableMappings.htmlCol || !tableMappings.nameCol) return;
+      
       const start = parseInt(document.getElementById('start').value);
       const end = parseInt(document.getElementById('end').value);
+      if (isNaN(start) || isNaN(end) || start > end) return;
 
-      if (isNaN(start) || isNaN(end) || start > end) {
-        status.innerText = "⚠️ Plage de lignes invalide.";
-        status.style.color = "red";
-        return;
-      }
-
-      // Filtrage basé sur l'index (position) et non sur le rowId interne de Grist
       const selectedRecords = tableRecords.slice(start - 1, end);
-      
-      if (selectedRecords.length === 0) {
-        status.innerText = "⚠️ Aucun document dans cette plage.";
-        status.style.color = "orange";
-        return;
-      }
+      if (selectedRecords.length === 0) return;
 
+      const uiZone = document.getElementById('ui-zone');
+      const renderZone = document.getElementById('render-zone');
+      const loader = document.getElementById('fullscreen-loader');
+      
       const zip = new JSZip();
       let pdfsGenerated = 0;
+
+      // TECHNIQUE ANTI-BUG : On masque le widget et on affiche le document "en dur"
+      uiZone.style.display = 'none';
+      renderZone.style.display = 'block';
+      loader.style.display = 'block';
+      document.body.style.backgroundColor = 'white';
 
       for (let i = 0; i < selectedRecords.length; i++) {
         try {
           const rec = selectedRecords[i];
           const htmlContent = rec[tableMappings.htmlCol];
-          let fileName = rec[tableMappings.nameCol] || `SansNom`;
+          let fileName = rec[tableMappings.nameCol] || `Document_Ligne_${rec.id}`;
 
-          if (!htmlContent) continue; // Skip si cellule HTML vide
+          if (!htmlContent) continue;
 
           pdfsGenerated++;
-          status.innerText = `⏳ Rendu PDF ${pdfsGenerated} / ${selectedRecords.length}...`;
-          status.style.color = "#333";
+          loader.innerText = `⏳ PDF ${pdfsGenerated} / ${selectedRecords.length} (${fileName})...`;
 
-          // Hack : rendu dans un conteneur hors-écran. 
-          // Obligatoire pour forcer la largeur à 210mm et déclencher le CSS "editor-preview"
-          const tempContainer = document.createElement('div');
-          tempContainer.className = 'editor-preview';
-          tempContainer.innerHTML = htmlContent;
-          tempContainer.style.position = 'absolute';
-          tempContainer.style.top = '-9999px'; 
-          tempContainer.style.left = '0';
-          document.body.appendChild(tempContainer);
+          // 1. On injecte le HTML
+          renderZone.innerHTML = htmlContent;
 
-          // Fix bloquant : html2pdf crash ou skip les images si elles ne sont pas chargées.
-          // On force une Promise sur chaque balise <img> (ex: logo pref) avec un timeout de 3s max.
-          const images = tempContainer.querySelectorAll('img');
+          // 2. CORRECTION CRITIQUE : On bloque le défilement en haut à gauche.
+          // C'est ce qui empêchait html2canvas de voir le bas de vos documents !
+          window.scrollTo(0, 0);
+
+          // 3. Attente SÉCURISÉE des images (Maximum 1.5 secondes par image)
+          const images = renderZone.querySelectorAll('img');
           const imagePromises = Array.from(images).map(img => {
               return new Promise((resolve) => {
                   if (img.complete) return resolve();
                   img.onload = resolve;
                   img.onerror = resolve; 
-                  setTimeout(resolve, 3000); 
+                  setTimeout(resolve, 1500); // Ne bloque jamais plus de 1.5 sec
               });
           });
           await Promise.all(imagePromises);
           
-          // Léger délai pour le repaint du DOM
-          await new Promise(r => setTimeout(r, 200));
+          // Léger temps de pause pour que le navigateur dessine les tableaux
+          await new Promise(r => setTimeout(r, 250));
 
-          // Nettoyage des caractères spéciaux pour éviter les erreurs d'écriture dans le zip
+          // 4. Nettoyage du nom de fichier (retrait des accents pour le ZIP)
           const cleanFileName = String(fileName).replace(/[^a-z0-9À-ÿ-]/gi, '_');
-          // Ajout de l'ID pour éviter les écrasements dans le ZIP si 2 établissements ont le même nom
           const uniqueFileName = `PV_ID${rec.id}_${cleanFileName}.pdf`;
 
+          // 5. Options du PDF corrigées
           const opt = {
-            margin:       0, 
+            margin:       0,
             filename:     uniqueFileName,
             image:        { type: 'jpeg', quality: 1 },
             html2canvas:  { 
               scale: 2, 
-              useCORS: true, // Autorise le fetch des logos distants
-              logging: false,
-              windowWidth: 794 // 210mm en px (simule l'écran pour html2canvas)
+              useCORS: true,
+              scrollY: 0, 
+              scrollX: 0
             },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            // Essentiel : active la lecture de `page-break-before: always;` insérés dans le Grist
-            pagebreak:    { mode: ['css', 'legacy'] }
+            pagebreak:    { mode: 'css' } // Force le respect de vos "page-break-before"
           };
 
-          // Conversion en blob pour injection directe dans le ZIP
-          const pdfBlob = await html2pdf().set(opt).from(tempContainer).output('blob');
-          zip.file(uniqueFileName, pdfBlob);
-
-          // Nettoyage DOM
-          document.body.removeChild(tempContainer);
+          // 6. Génération et ajout direct dans le ZIP
+          const pdfBlob = await html2pdf().set(opt).from(renderZone).output('blob');
+          if (pdfBlob && pdfBlob.size > 0) {
+            zip.file(uniqueFileName, pdfBlob);
+          }
           
+          renderZone.innerHTML = '';
         } catch (error) {
-          console.error(`Skip erreur ligne ${i}:`, error);
+          console.error(`Erreur création PDF ligne ${i}:`, error);
         }
       }
 
-      // DL final
+      // TECHNIQUE ANTI-BUG : On restaure l'interface
+      uiZone.style.display = 'block';
+      renderZone.style.display = 'none';
+      document.body.style.backgroundColor = '#f8f9fa';
+
       if (pdfsGenerated > 0) {
-        status.innerText = "📦 Assemblage du ZIP en cours...";
+        loader.innerText = "📦 Compression du dossier ZIP...";
         
+        // Téléchargement du ZIP final
         const zipBlob = await zip.generateAsync({type:"blob"});
         saveAs(zipBlob, `Export_PV_Etablissements.zip`);
-
-        status.innerText = `🎉 Ok : ZIP généré (${pdfsGenerated} fichiers).`;
-        status.style.color = "green";
+        
+        loader.style.display = 'none';
+        document.getElementById('status').innerText = `🎉 Terminé ! (${pdfsGenerated} fichiers dans le ZIP)`;
+        document.getElementById('status').style.color = "green";
       } else {
-        status.innerText = "⚠️ Zéro HTML valide trouvé sur la sélection.";
+        loader.style.display = 'none';
+        document.getElementById('status').innerText = "⚠️ Zéro PDF généré (HTML vide).";
       }
     });
   </script>
