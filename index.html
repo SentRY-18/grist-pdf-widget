@@ -1,95 +1,182 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-  
+
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; margin: 0; padding: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; line-height: 1.4; }
     
-    /* Interface du widget */
-    #ui-zone { padding: 25px; max-width: 400px; margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    h3 { text-align: center; margin-top: 0; color: #0056b3; }
-    .input-group { margin-bottom: 15px; }
-    label { font-weight: bold; font-size: 13px; }
-    input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-    button { width: 100%; padding: 12px; background: #0056b3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; }
-    button:hover { background: #004494; }
-    #status { margin-top: 15px; font-size: 13px; text-align: center; font-weight: bold; }
-    #mapping-warning { display: none; background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; border: 1px solid #ffeeba; }
+    /* =========================================================
+       INTERFACE WIDGET
+       ========================================================= */
+    #ui-zone { max-width: 800px; margin: 20px auto; background: white; padding: 25px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    h1 { color: #333; margin-bottom: 20px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+    .form-group { margin-bottom: 20px; }
+    .label-with-info { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; color: #555; font-weight: 500; font-size: 14px; }
+    .input-row { display: flex; gap: 15px; margin-bottom: 15px; }
+    .input-col { flex: 1; }
+    
+    input[type="text"], input[type="number"] { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; display: block; background: #fafafa; transition: all 0.2s; }
+    input:focus { outline: none; border-color: #667eea; background: white; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+    
+    button { background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: 500; transition: background 0.2s; display: inline-flex; align-items: center; gap: 8px; width: 100%; justify-content: center; margin-top: 10px; }
+    button:hover { background: #5568d3; }
 
-    /* Indicateur de chargement plein écran */
-    #fullscreen-loader { display: none; position: fixed; top: 10px; right: 10px; background: #0056b3; color: white; padding: 10px 20px; border-radius: 5px; z-index: 10000; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    /* Tooltips */
+    .info-icon { display: inline-flex; justify-content: center; align-items: center; width: 16px; height: 16px; background: white; color: #333; border-radius: 50%; font-size: 11px; font-weight: bold; cursor: help; position: relative; border: 1px solid #ccc; }
+    .info-icon .tooltip { position: absolute; bottom: 135%; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 8px 10px; border-radius: 4px; font-size: 12px; width: 260px; text-align: center; opacity: 0; visibility: hidden; transition: all 0.2s; z-index: 20; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: normal; }
+    .info-icon:hover .tooltip { opacity: 1; visibility: visible; bottom: 150%; }
+    .info-icon .tooltip::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border-width: 5px; border-style: solid; border-color: #333 transparent transparent transparent; }
 
-    /* Zone de rendu (Visible uniquement pendant la génération) */
+    #status { margin-top: 15px; font-size: 13px; text-align: center; font-weight: 500; color: #666; }
+
+    /* =========================================================
+       MOTEUR PDF (RENDU)
+       ========================================================= */
+    #fullscreen-loader { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 30px; z-index: 10000; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 14px; }
     #render-zone { display: none; width: 210mm; background: white; margin: 0; padding: 0; }
     
-    /* Reprise des styles du Markdown Grist pour les tableaux */
-    .editor-preview { font-family: sans-serif; line-height: 1.4; color: black; }
+    .editor-preview { font-family: sans-serif; line-height: 1.4; color: black; padding: 10mm 15mm; box-sizing: border-box; width: 210mm; }
     .editor-preview table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
     .editor-preview table th, .editor-preview table td { border: 1px solid black; padding: 5px; }
   </style>
 </head>
-<body>
 
+<body>
   <div id="ui-zone">
-    <h3>🖨️ Générateur PDF (Lot ZIP)</h3>
-    <div id="mapping-warning">⚠️ Configuration : associez les colonnes à droite.</div>
-    
-    <div class="input-group">
-      <label>De la ligne N° (Position) :</label>
-      <input type="number" id="start" value="1" min="1">
+    <h1>📦 Export PDF en Lot (ZIP)</h1>
+
+    <div class="form-group">
+      <div class="input-row">
+        <div class="input-col">
+          <label class="label-with-info">De la ligne N° :</label>
+          <input type="number" id="startRow" value="1" min="1">
+        </div>
+        <div class="input-col">
+          <label class="label-with-info">À la ligne N° :</label>
+          <input type="number" id="endRow" value="5" min="1">
+        </div>
+      </div>
+
+      <label class="label-with-info" for="namePattern">
+        Nom des documents PDF :
+        <span class="info-icon">i
+          <span class="tooltip">Indiquez le nom des colonnes entre accolades pour créer des noms dynamiques. Ex: PV_{Nom Etablissement}</span>
+        </span>
+      </label>
+      <input type="text" id="namePattern" placeholder="Ex: PV_{Nom_Etablissement}">
+
+      <button id="generateBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Générer le dossier ZIP
+      </button>
+      
+      <div id="status">En attente du mapping des colonnes...</div>
     </div>
-    <div class="input-group">
-      <label>À la ligne N° (Position) :</label>
-      <input type="number" id="end" value="5" min="1">
-    </div>
-    
-    <button id="generateBtn">Générer le dossier ZIP</button>
-    <div id="status">En attente de Grist...</div>
   </div>
 
   <div id="fullscreen-loader">⏳ Génération en cours...</div>
-  
-  <div id="render-zone" class="editor-preview"></div>
+  <div id="render-zone"></div>
 
   <script>
-    let tableRecords = [];
-    let tableMappings = null;
-
-    grist.ready({
+    grist.ready({ 
+      requiredAccess: 'full',
       columns: [
-        { name: "htmlCol", type: "Text", title: "Colonne HTML (Publipostage)" },
-        { name: "nameCol", type: "Text", title: "Nommage fichier (Ex: Etablissement)" }
-      ],
-      requiredAccess: 'full'
+        {
+          name: "col_html",
+          title: "Colonne HTML",
+          optional: false,
+          type: "Text",
+          description: "La colonne contenant le code HTML à imprimer"
+        }
+      ]
     });
 
-    grist.onRecords(function(records, mappings) {
-      tableRecords = records;
-      tableMappings = mappings;
+    const generateBtn = document.querySelector("#generateBtn");
+    const namePattern = document.querySelector("#namePattern");
+    const statusDiv = document.querySelector("#status");
+    
+    let mappedData = [];
+    let allDataRows = [];
+    let htmlColumnName = null;
 
-      if (!mappings || !mappings.htmlCol || !mappings.nameCol) {
-        document.getElementById('mapping-warning').style.display = 'block';
-        document.getElementById('status').innerText = "Configuration incomplète.";
-      } else {
-        document.getElementById('mapping-warning').style.display = 'none';
-        document.getElementById('status').innerText = "Prêt à générer !";
+    // 1. Récupération des données Grist
+    grist.onRecords(async (records) => {
+      mappedData = records;
+      
+      if (records.length > 0) {
+        const keys = Object.keys(records[0]).filter(key => key !== 'id');
+        if (keys.length > 0) {
+          htmlColumnName = keys[0];
+          statusDiv.innerText = "✅ Prêt à générer !";
+          statusDiv.style.color = "#10b981";
+        } else {
+          statusDiv.innerText = "⚠️ Mappez la colonne HTML dans le panneau de droite.";
+          statusDiv.style.color = "#f59e0b";
+        }
+      }
+      
+      try {
+        const table = await grist.getTable();
+        const tableName = await table._platform.getTableId();
+        const allData = await grist.docApi.fetchTable(tableName);
+        
+        allDataRows = [];
+        const numRows = allData.id.length;
+        const columnNames = Object.keys(allData);
+        
+        for (let i = 0; i < numRows; i++) {
+          const row = {};
+          columnNames.forEach(colName => {
+            row[colName] = allData[colName][i];
+          });
+          allDataRows.push(row);
+        }
+      } catch (error) {
+        console.error("Erreur de récupération :", error);
       }
     });
 
-    document.getElementById('generateBtn').addEventListener('click', async () => {
-      if (!tableMappings || !tableMappings.htmlCol || !tableMappings.nameCol) return;
+    // 2. Moteur de renommage {Variables}
+    function generateFileName(row, index) {
+      const pattern = namePattern.value.trim();
+      if (!pattern) return `Document_${index + 1}`;
       
-      const start = parseInt(document.getElementById('start').value);
-      const end = parseInt(document.getElementById('end').value);
+      const variables = pattern.match(/\{([^}]+)\}/g);
+      if (!variables) return `${pattern}_${index + 1}`;
+      
+      let fileName = pattern;
+      for (let variable of variables) {
+        const columnId = variable.slice(1, -1).trim();
+        if (columnId in row) {
+          const value = (row[columnId] || '').toString().trim();
+          fileName = fileName.replace(variable, value);
+        }
+      }
+      return fileName.replace(/[^a-z0-9À-ÿ- ]/gi, '_').replace(/\s+/g, ' ').trim();
+    }
+
+    // 3. Processus de génération
+    generateBtn.addEventListener('click', async () => {
+      if (!htmlColumnName || mappedData.length === 0 || allDataRows.length === 0) {
+        alert("Configuration incomplète ou données manquantes.");
+        return;
+      }
+
+      const start = parseInt(document.getElementById('startRow').value);
+      const end = parseInt(document.getElementById('endRow').value);
       if (isNaN(start) || isNaN(end) || start > end) return;
 
-      const selectedRecords = tableRecords.slice(start - 1, end);
-      if (selectedRecords.length === 0) return;
+      const rowsToProcess = mappedData.slice(start - 1, end);
+      if (rowsToProcess.length === 0) {
+        alert("Aucun document trouvé dans cette plage.");
+        return;
+      }
 
       const uiZone = document.getElementById('ui-zone');
       const renderZone = document.getElementById('render-zone');
@@ -98,94 +185,82 @@
       const zip = new JSZip();
       let pdfsGenerated = 0;
 
-      // TECHNIQUE ANTI-BUG : On masque le widget et on affiche le document "en dur"
+      // Hack anti-bug html2canvas : interface masquée, rendu natif à l'écran
       uiZone.style.display = 'none';
       renderZone.style.display = 'block';
       loader.style.display = 'block';
       document.body.style.backgroundColor = 'white';
 
-      for (let i = 0; i < selectedRecords.length; i++) {
+      for (let i = 0; i < rowsToProcess.length; i++) {
         try {
-          const rec = selectedRecords[i];
-          const htmlContent = rec[tableMappings.htmlCol];
-          let fileName = rec[tableMappings.nameCol] || `Document_Ligne_${rec.id}`;
+          const mappedRow = rowsToProcess[i];
+          const fullRow = allDataRows.find(r => r.id === mappedRow.id);
+          const htmlContent = mappedRow[htmlColumnName];
+          
+          if (!htmlContent || !fullRow) continue;
 
-          if (!htmlContent) continue;
+          // Nommage
+          let cleanFileName = generateFileName(fullRow, i);
+          const uniqueFileName = `PV_ID${mappedRow.id}_${cleanFileName}.pdf`;
 
           pdfsGenerated++;
-          loader.innerText = `⏳ PDF ${pdfsGenerated} / ${selectedRecords.length} (${fileName})...`;
+          loader.innerText = `⏳ Création PDF ${pdfsGenerated} / ${rowsToProcess.length} ...`;
 
-          // 1. On injecte le HTML
-          renderZone.innerHTML = htmlContent;
-
-          // 2. CORRECTION CRITIQUE : On bloque le défilement en haut à gauche.
-          // C'est ce qui empêchait html2canvas de voir le bas de vos documents !
+          // Injection avec la classe d'impression
+          renderZone.innerHTML = `<div class="editor-preview">${htmlContent}</div>`;
           window.scrollTo(0, 0);
 
-          // 3. Attente SÉCURISÉE des images (Maximum 1.5 secondes par image)
+          // Attente images (max 1.5s)
           const images = renderZone.querySelectorAll('img');
           const imagePromises = Array.from(images).map(img => {
               return new Promise((resolve) => {
                   if (img.complete) return resolve();
                   img.onload = resolve;
                   img.onerror = resolve; 
-                  setTimeout(resolve, 1500); // Ne bloque jamais plus de 1.5 sec
+                  setTimeout(resolve, 1500); 
               });
           });
           await Promise.all(imagePromises);
-          
-          // Léger temps de pause pour que le navigateur dessine les tableaux
-          await new Promise(r => setTimeout(r, 250));
+          await new Promise(r => setTimeout(r, 200));
 
-          // 4. Nettoyage du nom de fichier (retrait des accents pour le ZIP)
-          const cleanFileName = String(fileName).replace(/[^a-z0-9À-ÿ-]/gi, '_');
-          const uniqueFileName = `PV_ID${rec.id}_${cleanFileName}.pdf`;
-
-          // 5. Options du PDF corrigées
+          // Capture
           const opt = {
             margin:       0,
             filename:     uniqueFileName,
             image:        { type: 'jpeg', quality: 1 },
-            html2canvas:  { 
-              scale: 2, 
-              useCORS: true,
-              scrollY: 0, 
-              scrollX: 0
-            },
+            html2canvas:  { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak:    { mode: 'css' } // Force le respect de vos "page-break-before"
+            pagebreak:    { mode: 'css' }
           };
 
-          // 6. Génération et ajout direct dans le ZIP
           const pdfBlob = await html2pdf().set(opt).from(renderZone).output('blob');
           if (pdfBlob && pdfBlob.size > 0) {
             zip.file(uniqueFileName, pdfBlob);
           }
-          
           renderZone.innerHTML = '';
+          
         } catch (error) {
           console.error(`Erreur création PDF ligne ${i}:`, error);
         }
       }
 
-      // TECHNIQUE ANTI-BUG : On restaure l'interface
+      // Restauration de l'interface
       uiZone.style.display = 'block';
       renderZone.style.display = 'none';
-      document.body.style.backgroundColor = '#f8f9fa';
+      document.body.style.backgroundColor = '#f5f5f5';
 
       if (pdfsGenerated > 0) {
-        loader.innerText = "📦 Compression du dossier ZIP...";
-        
-        // Téléchargement du ZIP final
+        loader.innerText = "📦 Assemblage du ZIP...";
         const zipBlob = await zip.generateAsync({type:"blob"});
-        saveAs(zipBlob, `Export_PV_Etablissements.zip`);
+        saveAs(zipBlob, `Export_Documents_PDF.zip`);
         
         loader.style.display = 'none';
-        document.getElementById('status').innerText = `🎉 Terminé ! (${pdfsGenerated} fichiers dans le ZIP)`;
-        document.getElementById('status').style.color = "green";
+        statusDiv.innerText = `🎉 Terminé ! (${pdfsGenerated} PDF générés)`;
+        statusDiv.style.color = "#10b981";
       } else {
         loader.style.display = 'none';
-        document.getElementById('status').innerText = "⚠️ Zéro PDF généré (HTML vide).";
+        statusDiv.innerText = "⚠️ Aucun HTML valide trouvé.";
+        statusDiv.style.color = "#ef4444";
       }
     });
   </script>
