@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; }
     .container { max-width: 400px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -20,7 +23,7 @@
 <body>
 
   <div class="container">
-    <h3>🖨️ Générateur PDF (Lot)</h3>
+    <h3>🖨️ Générateur PDF (Lot ZIP)</h3>
     
     <div id="mapping-warning">
       ⚠️ Veuillez d'abord sélectionner les colonnes dans le panneau de droite de Grist.
@@ -34,7 +37,7 @@
       <label>À la ligne N° (Position) :</label>
       <input type="number" id="end" value="5" min="1">
     </div>
-    <button id="generateBtn">Générer les PDFs</button>
+    <button id="generateBtn">Générer le dossier ZIP</button>
     <div id="status">En attente de Grist...</div>
   </div>
 
@@ -94,6 +97,8 @@
         return;
       }
 
+      // Initialisation du fichier ZIP
+      const zip = new JSZip();
       let pdfsGenerated = 0;
 
       for (let i = 0; i < selectedRecords.length; i++) {
@@ -105,41 +110,59 @@
         if (!htmlContent) continue; 
 
         pdfsGenerated++;
-        status.innerText = `⏳ Création PDF ${pdfsGenerated} / ${selectedRecords.length} (${fileName})...`;
+        status.innerText = `⏳ Préparation du PDF ${pdfsGenerated} / ${selectedRecords.length} (${fileName})...`;
         status.style.color = "#333";
 
-        // CORRECTION 1 : On crée un conteneur temporaire "frais" pour chaque PDF
+        // Conteneur de la largeur exacte d'un A4
         const tempContainer = document.createElement('div');
         tempContainer.innerHTML = htmlContent;
         tempContainer.style.position = 'absolute';
-        tempContainer.style.top = '-10000px'; // On le cache hors de l'écran
-        tempContainer.style.width = '210mm'; // Format A4
+        tempContainer.style.top = '-9999px'; 
+        tempContainer.style.left = '0';
+        tempContainer.style.width = '210mm'; // Forcer la largeur A4
+        tempContainer.style.background = 'white';
         document.body.appendChild(tempContainer);
+
+        // ATTENTE OBLIGATOIRE DES IMAGES (Logo préfecture)
+        const images = tempContainer.querySelectorAll('img');
+        const imagePromises = Array.from(images).map(img => {
+            return new Promise((resolve) => {
+                if (img.complete) return resolve();
+                img.onload = resolve;
+                img.onerror = resolve; // On continue même s'il y a une erreur sur une image
+            });
+        });
+        await Promise.all(imagePromises);
+
+        const cleanFileName = String(fileName).replace(/[^a-z0-9À-ÿ-]/gi, '_');
 
         const opt = {
           margin:       0,
-          filename:     `PV_${String(fileName).replace(/[^a-z0-9À-ÿ-]/gi, '_')}.pdf`,
-          image:        { type: 'jpeg', quality: 0.98 },
+          filename:     `PV_${cleanFileName}.pdf`,
+          image:        { type: 'jpeg', quality: 1 },
           html2canvas:  { scale: 2, useCORS: true, logging: false },
           jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
-        // CORRECTION 2 : Un filet de sécurité (try/catch) pour éviter que tout bloque
         try {
-          await html2pdf().set(opt).from(tempContainer).save();
+          // On génère le PDF en format "Blob" (données brutes) et on l'ajoute au ZIP
+          const pdfBlob = await html2pdf().set(opt).from(tempContainer).output('blob');
+          zip.file(`PV_${cleanFileName}.pdf`, pdfBlob);
         } catch (error) {
-          console.error(`Erreur lors de la génération du PDF ${fileName}:`, error);
+          console.error(`Erreur sur le PDF ${fileName}:`, error);
         }
 
-        // On supprime le conteneur une fois le PDF généré
         document.body.removeChild(tempContainer);
-        
-        // CORRECTION 3 : On attend 1.5 seconde entre chaque téléchargement
-        await new Promise(r => setTimeout(r, 1500)); 
       }
 
       if (pdfsGenerated > 0) {
-        status.innerText = `🎉 Terminé ! ${pdfsGenerated} PDFs téléchargés.`;
+        status.innerText = "📦 Compression du dossier ZIP...";
+        
+        // On télécharge le dossier ZIP final
+        const zipBlob = await zip.generateAsync({type:"blob"});
+        saveAs(zipBlob, `Export_PV_Etablissements.zip`);
+
+        status.innerText = `🎉 Terminé ! Dossier ZIP téléchargé (${pdfsGenerated} fichiers).`;
         status.style.color = "green";
       } else {
         status.innerText = "⚠️ Aucun HTML valide trouvé.";
