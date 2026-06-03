@@ -6,8 +6,7 @@
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -186,6 +185,19 @@
       height: 0px;
       padding: 0px;
       border-top: none;
+    }
+
+    /* Évite les coupures à l'intérieur des lignes de tableau et blocs */
+    #render-zone .editor-preview tr,
+    #render-zone .editor-preview td,
+    #render-zone .editor-preview th,
+    #render-zone .editor-preview li,
+    #render-zone .editor-preview img,
+    #render-zone .editor-preview h1,
+    #render-zone .editor-preview h2,
+    #render-zone .editor-preview h3 {
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
 
     /* Images */
@@ -441,21 +453,14 @@
   }
 
   /* ════════════════════════════════════════════════
-     MOTEUR PDF
-     Approche : déplacement du contenu par margin-top
-     négatif pour exposer chaque page l'une après l'autre.
-     html2canvas capture toujours exactement 1 page A4.
-     Évite tout bug de ratio ou de découpage canvas.
+     MOTEUR PDF — html2pdf avec sauts de page intelligents
+     
+     Clé : on interdit les coupures à l'intérieur des
+     éléments (tr, p, li) via CSS avoid, et on laisse
+     html2pdf calculer les sauts naturellement.
+     C'est le même rendu que l'impression navigateur.
   ════════════════════════════════════════════════ */
   async function htmlToBlob(html) {
-    const { jsPDF } = window.jspdf;
-
-    // 794px = 210mm @ 96dpi ; PAGE_H = 794 * 297/210 = 1123px
-    const RENDER_W  = 794;
-    const MM_W      = 210;
-    const MM_H      = 297;
-    const PAGE_H_PX = Math.round(RENDER_W * MM_H / MM_W); // 1123
-
     rz.innerHTML = `<div class="editor-preview">${html}</div>`;
     const ep = rz.firstElementChild;
 
@@ -463,40 +468,40 @@
     await waitImages(ep, 4000);
     await sleep(300);
 
-    const totalH   = ep.scrollHeight;
-    const numPages = Math.max(1, Math.ceil(totalH / PAGE_H_PX));
-    const pdf      = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-
-    for (let p = 0; p < numPages; p++) {
-      if (p > 0) pdf.addPage();
-
-      // Décale le contenu pour exposer la page courante dans la fenêtre de capture
-      ep.style.marginTop = -(p * PAGE_H_PX) + 'px';
-      await sleep(50);
-
-      const canvas = await html2canvas(ep, {
-        scale:           2,
-        useCORS:         true,
-        allowTaint:      true,
-        logging:         false,
-        scrollX:         0,
-        scrollY:         0,
-        windowWidth:     RENDER_W,
-        width:           RENDER_W,
-        height:          PAGE_H_PX,
-        backgroundColor: '#ffffff'
-      });
-
-      pdf.addImage(
-        canvas.toDataURL('image/jpeg', 0.92),
-        'JPEG', 0, 0, MM_W, MM_H, '', 'FAST'
-      );
-
-      canvas.width = canvas.height = 1; // libère la mémoire
-    }
-
-    rz.innerHTML = '';
-    return pdf.output('blob');
+    return new Promise((resolve, reject) => {
+      html2pdf()
+        .set({
+          margin:      [10, 15, 10, 15], // top, right, bottom, left en mm
+          filename:    'doc.pdf',
+          image:       { type: 'jpeg', quality: 0.95 },
+          html2canvas: {
+            scale:           2,
+            useCORS:         true,
+            allowTaint:      true,
+            logging:         false,
+            scrollX:         0,
+            scrollY:         0,
+            windowWidth:     794,
+            backgroundColor: '#ffffff'
+          },
+          jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak:   {
+            // Évite les coupures dans les lignes de tableau et paragraphes
+            avoid: ['tr', 'td', 'th', 'li', 'img', 'h1', 'h2', 'h3', '.no-break'],
+            mode:  ['css', 'legacy']
+          }
+        })
+        .from(ep)
+        .output('blob')
+        .then(blob => {
+          rz.innerHTML = '';
+          resolve(blob);
+        })
+        .catch(err => {
+          rz.innerHTML = '';
+          reject(err);
+        });
+    });
   }
 
   /* ════════════════════════════════════════════════
