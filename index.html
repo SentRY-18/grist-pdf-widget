@@ -442,11 +442,19 @@
 
   /* ════════════════════════════════════════════════
      MOTEUR PDF
-     - Capture totale du contenu en 1 canvas
-     - Découpe en tranches A4 dans jsPDF
+     Approche : déplacement du contenu par margin-top
+     négatif pour exposer chaque page l'une après l'autre.
+     html2canvas capture toujours exactement 1 page A4.
+     Évite tout bug de ratio ou de découpage canvas.
   ════════════════════════════════════════════════ */
   async function htmlToBlob(html) {
     const { jsPDF } = window.jspdf;
+
+    // 794px = 210mm @ 96dpi ; PAGE_H = 794 * 297/210 = 1123px
+    const RENDER_W  = 794;
+    const MM_W      = 210;
+    const MM_H      = 297;
+    const PAGE_H_PX = Math.round(RENDER_W * MM_H / MM_W); // 1123
 
     rz.innerHTML = `<div class="editor-preview">${html}</div>`;
     const ep = rz.firstElementChild;
@@ -455,57 +463,39 @@
     await waitImages(ep, 4000);
     await sleep(300);
 
-    // Capture entière du contenu
-    const canvas = await html2canvas(ep, {
-      scale:           2,
-      useCORS:         true,
-      allowTaint:      true,
-      logging:         false,
-      scrollX:         0,
-      scrollY:         0,
-      windowWidth:     794,
-      width:           794,
-      height:          ep.scrollHeight,
-      backgroundColor: '#ffffff'
-    });
-
-    // Dimensions A4
-    const MM_W     = 210;
-    const MM_H     = 297;
-    const cW       = canvas.width;
-    // Hauteur en pixels d'une page A4 (proportionnel à la largeur capturée)
-    const pageH_px = Math.round(cW * (MM_H / MM_W));
-    const totalH   = canvas.height;
-    const numPages = Math.max(1, Math.ceil(totalH / pageH_px));
-
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-
-    // Canvas tampon pour découper chaque tranche
-    const tmp = document.createElement('canvas');
-    tmp.width  = cW;
-    tmp.height = pageH_px;
-    const ctx  = tmp.getContext('2d');
+    const totalH   = ep.scrollHeight;
+    const numPages = Math.max(1, Math.ceil(totalH / PAGE_H_PX));
+    const pdf      = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
     for (let p = 0; p < numPages; p++) {
       if (p > 0) pdf.addPage();
 
-      const srcY    = p * pageH_px;
-      const sliceH  = Math.min(pageH_px, totalH - srcY);
+      // Décale le contenu pour exposer la page courante dans la fenêtre de capture
+      ep.style.marginTop = -(p * PAGE_H_PX) + 'px';
+      await sleep(50);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, cW, pageH_px);
-      ctx.drawImage(canvas, 0, srcY, cW, sliceH, 0, 0, cW, sliceH);
+      const canvas = await html2canvas(ep, {
+        scale:           2,
+        useCORS:         true,
+        allowTaint:      true,
+        logging:         false,
+        scrollX:         0,
+        scrollY:         0,
+        windowWidth:     RENDER_W,
+        width:           RENDER_W,
+        height:          PAGE_H_PX,
+        backgroundColor: '#ffffff'
+      });
 
-      // Hauteur réelle en mm pour cette tranche (dernière page peut être plus courte)
-      const mmSliceH = sliceH * (MM_H / pageH_px);
-      pdf.addImage(tmp.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, MM_W, mmSliceH, '', 'FAST');
+      pdf.addImage(
+        canvas.toDataURL('image/jpeg', 0.92),
+        'JPEG', 0, 0, MM_W, MM_H, '', 'FAST'
+      );
+
+      canvas.width = canvas.height = 1; // libère la mémoire
     }
 
-    // Libération mémoire
-    canvas.width = canvas.height = 1;
-    tmp.width    = tmp.height    = 1;
     rz.innerHTML = '';
-
     return pdf.output('blob');
   }
 
