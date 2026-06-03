@@ -70,7 +70,7 @@
       padding:11px 16px; border:none; border-radius:7px;
       font-size:13px; font-weight:700; font-family:inherit;
       cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;
-      transition:opacity .2s, box-shadow .2s;
+      transition:opacity .2s;
     }
     #genBtn {
       flex:1;
@@ -101,36 +101,110 @@
     #result.err  { display:block; background:#fef2f2; color:#991b1b !important; border:1px solid #fca5a5; }
     #result.warn { display:block; background:#fffbeb; color:#b45309 !important; border:1px solid #fde68a; }
 
-    /* ── Zone de rendu hors-écran ── */
+    /* ══════════════════════════════════════════════════════
+       ZONE DE RENDU — CSS copié EXACTEMENT du widget Markdown
+       Grist (EasyMDE editor-preview) pour rendu identique
+       ══════════════════════════════════════════════════════ */
     #render-zone {
-      position:fixed; top:0; left:-9999px;
-      width:794px; background:#fff; color:#000;
-      pointer-events:none; z-index:-1;
+      position: fixed;
+      top: 0;
+      left: -9999px;
+      width: 794px;
+      background: white;
+      pointer-events: none;
+      z-index: -1;
     }
-    #render-zone .ep {
-      font-family:sans-serif; font-size:13px; line-height:1.5;
-      color:#000 !important; background:#fff !important;
-      padding:28px 38px; width:794px;
+
+    /* Conteneur principal — identique à ce que EasyMDE génère */
+    #render-zone .editor-preview {
+      font-family: sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+      color: black;
+      background: white;
+      padding: 10mm 15mm;
+      width: 794px;
+      /* Pas de color: inherit pour rester identique au widget */
     }
-    #render-zone .ep * { color:inherit !important; background:inherit; }
-    #render-zone .ep h1 { font-size:20px; margin:12px 0 6px; }
-    #render-zone .ep h2 { font-size:16px; margin:10px 0 5px; }
-    #render-zone .ep h3 { font-size:14px; margin:8px 0 4px; }
-    #render-zone .ep p  { margin:5px 0; }
-    #render-zone .ep ul, #render-zone .ep ol { margin:5px 0 5px 18px; }
-    #render-zone .ep li { margin:2px 0; }
-    #render-zone .ep code { background:#dfe9ff !important; padding:0 4px; border-radius:4px; font-size:.9em; }
-    #render-zone .ep blockquote { border-left:4px solid #ddd; margin:0; padding:0 1rem; color:#555 !important; }
-    #render-zone .ep pre { background:#eef3ff !important; padding:8px; border-radius:4px; }
-    #render-zone .ep pre code { background:none !important; padding:0; }
-    #render-zone .ep hr { margin:1rem 0; border:none; border-top:1px solid #ddd; }
-    #render-zone .ep img { max-width:100%; height:auto; display:inline-block; }
-    #render-zone .ep table { width:100%; margin:8px 0; border-collapse:collapse; border:1px solid #bbb; }
-    #render-zone .ep table th,
-    #render-zone .ep table td { border:1px solid #bbb; padding:5px 10px; text-align:left; vertical-align:top; color:#000 !important; }
-    #render-zone .ep table th { background:#f0f2f7 !important; font-weight:700; }
-    #render-zone .ep table th:empty,
-    #render-zone .ep table td:empty { height:0; padding:0; }
+
+    /* Code inline */
+    #render-zone .editor-preview code {
+      background-color: #dfe9ff;
+      padding: 0 4px;
+      border-radius: 4px;
+      color: black;
+    }
+
+    /* Blockquote */
+    #render-zone .editor-preview blockquote {
+      border-left: 4px solid #ddd;
+      margin: 0;
+      padding: 0 1rem;
+      color: #666;
+    }
+
+    /* Blocs de code */
+    #render-zone .editor-preview pre {
+      background-color: #eef3ff;
+      padding: 8px;
+      border-radius: 4px;
+    }
+    #render-zone .editor-preview pre code {
+      background-color: unset;
+      padding: unset;
+      border-radius: unset;
+    }
+
+    /* Séparateur horizontal */
+    #render-zone .editor-preview hr {
+      margin-top: 2rem;
+      margin-bottom: 2rem;
+      border: none;
+      border-top: 1px solid #ddd;
+    }
+
+    /* Tableaux — CSS EXACT du widget Grist */
+    #render-zone .editor-preview table {
+      margin: 2rem 0;
+      border-spacing: 0;
+      border: 1px solid lightgrey;
+      border-left: none;
+      border-top: none;
+      border-collapse: separate; /* intentionnel comme dans le widget */
+      width: 100%;
+    }
+    #render-zone .editor-preview table th,
+    #render-zone .editor-preview table td {
+      border: 1px solid lightgrey;
+      padding: 0.5rem 1rem;
+      border-right: none;
+      border-bottom: none;
+      color: black;
+    }
+    #render-zone .editor-preview table th:empty,
+    #render-zone .editor-preview table td:empty {
+      height: 0px;
+      padding: 0px;
+      border-top: none;
+    }
+
+    /* Images */
+    #render-zone .editor-preview img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* Paragraphes et titres */
+    #render-zone .editor-preview p   { margin: 0.5em 0; }
+    #render-zone .editor-preview h1  { font-size: 2em;   margin: 0.67em 0; font-weight: bold; }
+    #render-zone .editor-preview h2  { font-size: 1.5em; margin: 0.75em 0; font-weight: bold; }
+    #render-zone .editor-preview h3  { font-size: 1.17em;margin: 0.83em 0; font-weight: bold; }
+    #render-zone .editor-preview ul,
+    #render-zone .editor-preview ol  { margin: 0.5em 0 0.5em 2em; }
+    #render-zone .editor-preview li  { margin: 0.25em 0; }
+    #render-zone .editor-preview strong { font-weight: bold; }
+    #render-zone .editor-preview em     { font-style: italic; }
+    #render-zone .editor-preview u      { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -167,11 +241,11 @@
     <div class="sec">Nom des fichiers PDF</div>
     <div class="field">
       <label>Modèle <span>(variables : {Nom_Colonne})</span></label>
-      <input type="text" id="namePattern" value="{Modele}.{Nom_du_modele} - {N_Etablissement}">
+      <input type="text" id="namePattern" value="{Nom_du_modele} - {N_Etablissement}">
     </div>
     <div class="callout">
       <span>💡</span>
-      <span>Modifiez le modèle si besoin. Utilisez <code>{Nom_Colonne}</code> pour insérer une valeur Grist.</span>
+      <span>Pour les colonnes de référence Grist, utilisez <code>{NomColonne.ChampLié}</code> — ex&nbsp;: <code>{Modele.Nom_du_modele}</code>.</span>
     </div>
 
     <div class="btn-row">
@@ -234,12 +308,23 @@
       if (typeof tbl.getTableId === 'function') id = await tbl.getTableId();
       else if (tbl._platform?.getTableId)       id = await tbl._platform.getTableId();
       else { allTableRows = mappedRecords; return; }
+
       const raw  = await grist.docApi.fetchTable(id);
       const cols = Object.keys(raw);
-      allTableRows = Array.from({ length: raw.id.length }, (_, i) => {
-        const r = {}; cols.forEach(c => r[c] = raw[c][i]); return r;
+      const n    = raw.id.length;
+
+      allTableRows = Array.from({ length: n }, (_, i) => {
+        const r = {};
+        cols.forEach(c => { r[c] = raw[c][i]; });
+        return r;
       });
-    } catch { allTableRows = mappedRecords; }
+
+      console.log('Colonnes disponibles:', cols);
+      console.log('Exemple ligne 0:', allTableRows[0]);
+    } catch (e) {
+      console.warn('fetchTable échoué:', e);
+      allTableRows = mappedRecords;
+    }
   }
 
   function updateStatus() {
@@ -256,54 +341,82 @@
   }
 
   /* ════════════════════════════════════════════════
-     IMAGES : résolution des pièces jointes Grist
-     
-     Les URLs des pièces jointes ressemblent à :
-       /api/docs/DOCID/attachments/42/download
-     
-     On les récupère via grist.docApi si possible,
-     sinon via fetch() avec credentials.
-     Dans tous les cas on convertit en base64
-     pour que html2canvas puisse les afficher.
+     RENOMMAGE — gère les colonnes de référence Grist
+
+     Grist stocke les colonnes de référence sous deux formes
+     dans fetchTable :
+       - "Modele"        → l'ID (entier) de la ligne liée
+       - "Modele.Nom_du_modele" → la valeur dépliée (si elle existe)
+
+     Le pattern {Modele.Nom_du_modele} cherche d'abord
+     la clé "Modele.Nom_du_modele" dans la ligne,
+     puis tente "Modele_Nom_du_modele" (underscore, autre convention),
+     puis remonte sur la valeur brute de "Modele".
+  ════════════════════════════════════════════════ */
+  function resolveVar(row, key) {
+    // 1. Clé exacte (ex: "N_Etablissement", "Nom_du_modele")
+    if (key in row) return String(row[key] ?? '').trim();
+
+    // 2. Notation pointée pour colonnes de référence : "Modele.Nom_du_modele"
+    //    Grist aplatit souvent sous la forme "Modele.Nom_du_modele" dans fetchTable
+    if (key.includes('.')) {
+      // Essai direct avec le point
+      if (key in row) return String(row[key] ?? '').trim();
+
+      // Essai avec underscore à la place du point : "Modele_Nom_du_modele"
+      const underscoreKey = key.replace('.', '_');
+      if (underscoreKey in row) return String(row[underscoreKey] ?? '').trim();
+
+      // Essai : parfois Grist préfixe avec le nom de la table liée
+      // ex: "Modeles.Nom_du_modele"
+      const parts = key.split('.');
+      const colRef  = parts[0];   // "Modele"
+      const colProp = parts[1];   // "Nom_du_modele"
+
+      // Cherche toutes les clés qui contiennent colProp après un point ou underscore
+      const candidates = Object.keys(row).filter(k =>
+        k === colProp ||
+        k.endsWith('.' + colProp) ||
+        k.endsWith('_' + colProp) ||
+        k === colRef + '.' + colProp ||
+        k === colRef + '_' + colProp
+      );
+      if (candidates.length > 0) return String(row[candidates[0]] ?? '').trim();
+
+      // Fallback : retourner la valeur de la colonne de référence parente (l'ID)
+      if (colRef in row) return String(row[colRef] ?? '').trim();
+    }
+
+    return ''; // variable inconnue → chaîne vide plutôt que laisser {Variable}
+  }
+
+  function buildName(row, idx) {
+    const pat = $('namePattern').value.trim() || `Document_${idx + 1}`;
+    const resolved = pat.replace(/\{([^}]+)\}/g, (m, k) => resolveVar(row, k.trim()));
+    return resolved
+      .replace(/[<>:"/\\|?*]/g, '_')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 200) || `Document_${idx + 1}`;
+  }
+
+  /* ════════════════════════════════════════════════
+     IMAGES — résolution des pièces jointes Grist
+     (URLs /api/docs/.../attachments/N/download)
   ════════════════════════════════════════════════ */
   async function resolveImages(container) {
     const imgs = Array.from(container.querySelectorAll('img'));
     await Promise.all(imgs.map(async img => {
       const src = img.getAttribute('src') || '';
-      if (!src || src.startsWith('data:')) return; // déjà base64
-
+      if (!src || src.startsWith('data:')) return;
       try {
-        // Construire l'URL absolue
         const url = src.startsWith('http') ? src : (location.origin + src);
-        
-        // Tentative 1 : fetch avec credentials (fonctionne si même origine)
-        let blob = null;
-        try {
-          const r = await fetch(url, {
-            credentials: 'include',
-            mode: 'cors',
-            cache: 'force-cache'
-          });
-          if (r.ok) blob = await r.blob();
-        } catch (_) {}
-
-        // Tentative 2 : fetch sans CORS (same-origin uniquement)
-        if (!blob) {
-          try {
-            const r = await fetch(url, { credentials: 'include', mode: 'no-cors' });
-            // mode no-cors retourne une "opaque response", on ne peut pas lire le blob
-            // donc cette tentative ne sert qu'à précharger le cache navigateur
-          } catch (_) {}
-        }
-
-        if (blob) {
-          img.src = await blobToBase64(blob);
-        } else {
-          // Dernier recours : laisser l'URL et activer allowTaint dans html2canvas
-          console.warn('Image non convertie en base64, URL laissée:', src);
-        }
+        const r   = await fetch(url, { credentials: 'include' });
+        if (!r.ok) return;
+        const blob = await r.blob();
+        img.src = await blobToBase64(blob);
       } catch (e) {
-        console.warn('Erreur résolution image:', src, e.message);
+        console.warn('Image non résolue:', src, e.message);
       }
     }));
   }
@@ -329,120 +442,93 @@
 
   /* ════════════════════════════════════════════════
      MOTEUR PDF
-     
-     Correction du bug "même page répétée" :
-     - On capture le CONTENU ENTIER en un seul canvas haute résolution
-     - On découpe ensuite ce canvas en tranches A4 dans jsPDF
-     - Pas de scrollY tronqué = pas de répétition
+     - Capture totale du contenu en 1 canvas
+     - Découpe en tranches A4 dans jsPDF
   ════════════════════════════════════════════════ */
   async function htmlToBlob(html) {
     const { jsPDF } = window.jspdf;
 
-    // 1. Injection dans la zone de rendu
-    rz.innerHTML = `<div class="ep">${html}</div>`;
+    rz.innerHTML = `<div class="editor-preview">${html}</div>`;
     const ep = rz.firstElementChild;
 
-    // 2. Résolution images
     await resolveImages(ep);
     await waitImages(ep, 4000);
-    await sleep(300); // laisser le navigateur finir le layout
+    await sleep(300);
 
-    // 3. Capture TOTALE du contenu (une seule fois, toute la hauteur)
+    // Capture entière du contenu
     const canvas = await html2canvas(ep, {
       scale:           2,
       useCORS:         true,
-      allowTaint:      true,   // nécessaire si certaines images ne sont pas convertibles
+      allowTaint:      true,
       logging:         false,
       scrollX:         0,
       scrollY:         0,
       windowWidth:     794,
       width:           794,
-      height:          ep.scrollHeight,  // capture toute la hauteur réelle
+      height:          ep.scrollHeight,
       backgroundColor: '#ffffff'
     });
 
-    // 4. Découpage en pages A4 dans jsPDF
-    // A4 en mm : 210 x 297
-    // canvas : 794*2 = 1588 px de large, hauteur variable
-    const pdf       = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
-    const MM_W      = 210;
-    const MM_H      = 297;
-    const canvasW   = canvas.width;           // largeur totale du canvas
-    // Hauteur en px d'une page A4 dans le canvas (ratio identique à la largeur)
-    const pageH_px  = Math.round(canvas.width * (MM_H / MM_W));
-    const totalH_px = canvas.height;
-    const numPages  = Math.max(1, Math.ceil(totalH_px / pageH_px));
+    // Dimensions A4
+    const MM_W     = 210;
+    const MM_H     = 297;
+    const cW       = canvas.width;
+    // Hauteur en pixels d'une page A4 (proportionnel à la largeur capturée)
+    const pageH_px = Math.round(cW * (MM_H / MM_W));
+    const totalH   = canvas.height;
+    const numPages = Math.max(1, Math.ceil(totalH / pageH_px));
 
-    // Canvas temporaire pour découper chaque page
-    const pageCanvas = document.createElement('canvas');
-    pageCanvas.width  = canvasW;
-    pageCanvas.height = pageH_px;
-    const ctx = pageCanvas.getContext('2d');
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+    // Canvas tampon pour découper chaque tranche
+    const tmp = document.createElement('canvas');
+    tmp.width  = cW;
+    tmp.height = pageH_px;
+    const ctx  = tmp.getContext('2d');
 
     for (let p = 0; p < numPages; p++) {
       if (p > 0) pdf.addPage();
 
-      const srcY      = p * pageH_px;
-      const sliceH    = Math.min(pageH_px, totalH_px - srcY); // dernière page peut être plus courte
+      const srcY    = p * pageH_px;
+      const sliceH  = Math.min(pageH_px, totalH - srcY);
 
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvasW, pageH_px);
-      ctx.drawImage(
-        canvas,
-        0, srcY,       // source : position dans le grand canvas
-        canvasW, sliceH,
-        0, 0,          // destination : en haut du canvas de page
-        canvasW, sliceH
-      );
+      ctx.fillRect(0, 0, cW, pageH_px);
+      ctx.drawImage(canvas, 0, srcY, cW, sliceH, 0, 0, cW, sliceH);
 
-      const imgData = pageCanvas.toDataURL('image/jpeg', 0.92);
-      // On ajoute uniquement la partie remplie (évite du blanc si dernière page courte)
+      // Hauteur réelle en mm pour cette tranche (dernière page peut être plus courte)
       const mmSliceH = sliceH * (MM_H / pageH_px);
-      pdf.addImage(imgData, 'JPEG', 0, 0, MM_W, mmSliceH, '', 'FAST');
+      pdf.addImage(tmp.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, MM_W, mmSliceH, '', 'FAST');
     }
 
-    // Nettoyage mémoire
+    // Libération mémoire
     canvas.width = canvas.height = 1;
-    pageCanvas.width = pageCanvas.height = 1;
+    tmp.width    = tmp.height    = 1;
     rz.innerHTML = '';
 
     return pdf.output('blob');
   }
 
   /* ════════════════════════════════════════════════
-     RENOMMAGE
-  ════════════════════════════════════════════════ */
-  function buildName(row, idx) {
-    const pat = $('namePattern').value.trim() || `Document_${idx + 1}`;
-    return pat
-      .replace(/\{([^}]+)\}/g, (m, k) => {
-        const key = k.trim();
-        return (key in row) ? String(row[key] ?? '').trim() : m;
-      })
-      .replace(/[<>:"/\\|?*]/g, '_')  // caractères interdits dans les noms de fichiers
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 200) || `Document_${idx + 1}`;
-  }
-
-  /* ════════════════════════════════════════════════
-     HELPERS UI
+     HELPERS
   ════════════════════════════════════════════════ */
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   function setProgress(cur, tot, lbl) {
-    $('pbar').style.width     = tot > 0 ? Math.round(cur/tot*100)+'%' : '0%';
+    $('pbar').style.width     = tot > 0 ? Math.round(cur / tot * 100) + '%' : '0%';
     $('prog-lbl').textContent = lbl;
     $('prog-cnt').textContent = `${cur} / ${tot}`;
   }
 
   function showResult(cls, msg) {
     const el = $('result');
-    el.className = cls; el.textContent = msg; el.style.display = 'block';
+    el.className = cls;
+    el.textContent = msg;
+    el.style.display = 'block';
   }
 
   /* ════════════════════════════════════════════════
-     BOUTON ANNULER
+     ANNULER
   ════════════════════════════════════════════════ */
   $('cancelBtn').addEventListener('click', () => {
     if (!busy) return;
@@ -488,7 +574,7 @@
       const html   = mapped[htmlColKey];
       if (!html || !html.trim()) {
         skip++;
-        setProgress(i+1, slice.length, `Ligne ${start+i} ignorée (vide)`);
+        setProgress(i + 1, slice.length, `Ligne ${start + i} ignorée (vide)`);
         continue;
       }
 
@@ -507,29 +593,27 @@
           ok++;
         } else {
           skip++;
-          console.warn(`PDF trop petit ou vide — ligne ${start+i}`);
+          console.warn(`PDF vide — ligne ${start + i}`);
         }
       } catch (e) {
         skip++;
-        console.error(`Erreur ligne ${start+i}:`, e);
+        console.error(`Erreur ligne ${start + i}:`, e);
       }
 
-      setProgress(i+1, slice.length, `${ok} PDF créés…`);
+      setProgress(i + 1, slice.length, `${ok} PDF créés…`);
       if (i < slice.length - 1) await sleep(400);
     }
 
     if (ok > 0 && !cancelled) {
       setProgress(slice.length, slice.length, 'Assemblage du ZIP…');
-      const zb = await zip.generateAsync({
-        type:'blob', compression:'DEFLATE', compressionOptions:{level:5}
-      });
+      const zb = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 5 } });
       const d  = new Date();
       const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
       saveAs(zb, `Export_PDF_${ds}.zip`);
       setProgress(slice.length, slice.length, 'ZIP téléchargé ✓');
       showResult('ok', `🎉 ${ok} PDF générés${skip ? ` (${skip} ignorée(s))` : ''}`);
     } else if (!cancelled) {
-      showResult('err', '❌ Aucun PDF valide généré. Vérifiez le contenu HTML.');
+      showResult('err', '❌ Aucun PDF valide généré. Vérifiez le HTML des lignes.');
     }
 
     rz.innerHTML = '';
