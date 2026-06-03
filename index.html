@@ -2,707 +2,439 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Export PDF en Lot</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    /* ── RESET & BASE ───────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      --bg:        #f0f2f7;
-      --surface:   #ffffff;
-      --border:    #e2e5ed;
-      --text:      #1a1d27;
-      --muted:     #6b7280;
-      --accent:    #4f5de8;
-      --accent-h:  #3b49d4;
-      --success:   #10b981;
-      --warn:      #f59e0b;
-      --error:     #ef4444;
-      --radius:    8px;
-      --shadow:    0 2px 12px rgba(0,0,0,0.08);
-    }
-
-    body {
+    html, body {
+      background: #f0f2f7 !important;
+      color: #1a1d27 !important;
       font-family: 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
       font-size: 13px;
       line-height: 1.5;
-      min-height: 100vh;
     }
 
-    /* ── LAYOUT ─────────────────────────────────────────────── */
-    #app {
-      max-width: 680px;
-      margin: 0 auto;
-      padding: 20px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
+    #app { max-width: 560px; margin: 0 auto; padding: 16px 14px; }
 
-    /* ── CARD ───────────────────────────────────────────────── */
     .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px 20px;
-      box-shadow: var(--shadow);
-    }
-
-    /* ── HEADER ─────────────────────────────────────────────── */
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 18px;
-    }
-    .header-icon {
-      width: 36px;
-      height: 36px;
-      background: linear-gradient(135deg, #4f5de8, #7c86f7);
+      background: #fff !important;
+      border: 1px solid #e2e5ed;
       border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      flex-shrink: 0;
+      padding: 18px 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.07);
     }
-    .header-title { font-size: 15px; font-weight: 700; color: var(--text); }
-    .header-sub   { font-size: 11px; color: var(--muted); }
+    #app, #app * { color: #1a1d27 !important; }
 
-    /* ── SECTION TITLE ──────────────────────────────────────── */
-    .section-title {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 10px;
-    }
+    /* Header */
+    .hdr { display:flex; align-items:center; gap:10px; padding-bottom:13px; border-bottom:1px solid #e2e5ed; margin-bottom:15px; }
+    .hdr-icon { width:32px; height:32px; background:linear-gradient(135deg,#4f5de8,#7c86f7); border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .hdr-t { font-size:14px; font-weight:700; }
+    .hdr-s { font-size:11px; color:#6b7280 !important; }
 
-    /* ── FIELDS ─────────────────────────────────────────────── */
-    .field { margin-bottom: 12px; }
-    .field label {
-      display: block;
-      font-weight: 600;
-      font-size: 12px;
-      color: var(--text);
-      margin-bottom: 5px;
+    /* Status */
+    #col-status {
+      display:flex; align-items:center; gap:6px;
+      padding:7px 10px; border-radius:6px; font-size:12px; font-weight:600;
+      background:#fffbeb; color:#b45309 !important; border:1px solid #fde68a;
+      margin-bottom:14px;
     }
-    .field label span { font-weight: 400; color: var(--muted); }
-    .field input[type="text"],
-    .field input[type="number"],
-    .field select {
-      width: 100%;
-      padding: 9px 11px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 13px;
-      background: #fafbfc;
-      color: var(--text);
-      transition: border-color 0.15s, box-shadow 0.15s;
-      appearance: none;
-    }
-    .field input:focus,
-    .field select:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(79,93,232,0.12);
-      background: #fff;
-    }
-    .field input::placeholder { color: #bcc2cc; }
+    #col-status.ready { background:#ecfdf5; color:#065f46 !important; border-color:#6ee7b7; }
+    #col-status .dot  { width:7px; height:7px; border-radius:50%; background:currentColor; flex-shrink:0; }
 
-    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    /* Fields */
+    .sec { font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#6b7280 !important; margin-bottom:8px; }
+    .field { margin-bottom:10px; }
+    .field label { display:block; font-weight:600; font-size:12px; margin-bottom:4px; }
+    .field label span { font-weight:400; color:#6b7280 !important; }
 
-    .hint {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 4px;
+    input[type="text"], input[type="number"] {
+      display:block; width:100%; padding:8px 10px;
+      border:1.5px solid #d1d5db; border-radius:6px;
+      font-size:13px; font-family:inherit;
+      background:#f9fafb !important;
+      color:#111827 !important;
+      -webkit-text-fill-color:#111827 !important;
     }
+    input:focus { outline:none; border-color:#4f5de8; box-shadow:0 0 0 3px rgba(79,93,232,.13); background:#fff !important; }
+    input::placeholder { color:#9ca3af !important; -webkit-text-fill-color:#9ca3af !important; }
 
-    /* ── STATUS BADGE ───────────────────────────────────────── */
-    #column-status {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      background: #f5f5f5;
-      color: var(--muted);
-      margin-bottom: 14px;
-      transition: all 0.2s;
-    }
-    #column-status.ready   { background: #ecfdf5; color: var(--success); }
-    #column-status.waiting { background: #fffbeb; color: var(--warn); }
-    #column-status.error   { background: #fef2f2; color: var(--error); }
-    #column-status .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .hint { font-size:11px; color:#6b7280 !important; margin-top:3px; }
 
-    /* ── BUTTON ─────────────────────────────────────────────── */
-    #generateBtn {
-      width: 100%;
-      padding: 12px 20px;
-      background: linear-gradient(135deg, #4f5de8, #6b78f0);
-      color: white;
-      border: none;
-      border-radius: var(--radius);
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
-      box-shadow: 0 4px 14px rgba(79,93,232,0.35);
-      letter-spacing: 0.01em;
-      margin-top: 4px;
-    }
-    #generateBtn:hover:not(:disabled) {
-      opacity: 0.92;
-      box-shadow: 0 6px 18px rgba(79,93,232,0.45);
-    }
-    #generateBtn:active:not(:disabled) { transform: scale(0.98); }
-    #generateBtn:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-
-    /* ── PROGRESS ───────────────────────────────────────────── */
-    #progress-area { display: none; margin-top: 14px; }
-    #progress-area.visible { display: block; }
-
-    .progress-bar-wrap {
-      height: 6px;
-      background: var(--border);
-      border-radius: 99px;
-      overflow: hidden;
-      margin-bottom: 8px;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #4f5de8, #7c86f7);
-      border-radius: 99px;
-      transition: width 0.3s ease;
-      width: 0%;
-    }
-    .progress-text {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 12px;
-    }
-    .progress-label { color: var(--text); font-weight: 600; }
-    .progress-count { color: var(--muted); }
-
-    /* ── RESULT MESSAGE ─────────────────────────────────────── */
-    #result-msg {
-      display: none;
-      padding: 10px 14px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      margin-top: 12px;
-      text-align: center;
-    }
-    #result-msg.success { display: block; background: #ecfdf5; color: var(--success); border: 1px solid #a7f3d0; }
-    #result-msg.error   { display: block; background: #fef2f2; color: var(--error);   border: 1px solid #fca5a5; }
-    #result-msg.warn    { display: block; background: #fffbeb; color: var(--warn);    border: 1px solid #fde68a; }
-
-    /* ── DIVIDER ────────────────────────────────────────────── */
-    hr { border: none; border-top: 1px solid var(--border); }
-
-    /* ── INFO CALLOUT ───────────────────────────────────────── */
     .callout {
-      display: flex;
-      gap: 8px;
-      padding: 10px 12px;
-      background: #f0f4ff;
-      border: 1px solid #c7d0fa;
-      border-radius: 6px;
-      font-size: 12px;
-      color: #4050b5;
-      line-height: 1.5;
+      display:flex; gap:8px; padding:8px 10px;
+      background:#eef2ff; border:1px solid #c7d2fe; border-radius:6px;
+      font-size:11.5px; color:#3730a3 !important; line-height:1.5;
     }
-    .callout .ico { flex-shrink: 0; margin-top: 1px; }
+    .callout code { background:#c7d2fe; padding:1px 4px; border-radius:3px; font-size:11px; color:#1e1b4b !important; -webkit-text-fill-color:#1e1b4b !important; }
 
-    /* ── RENDER ZONE (hors écran mais lisible par html2canvas) ─ */
+    hr { border:none; border-top:1px solid #e5e7eb; margin:13px 0; }
+
+    /* Boutons */
+    .btn-row { display:flex; gap:8px; margin-top:4px; }
+    #genBtn, #cancelBtn {
+      flex:1; padding:11px 16px; border:none; border-radius:7px;
+      font-size:13px; font-weight:700; font-family:inherit;
+      cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;
+      transition:opacity .2s, box-shadow .2s;
+    }
+    #genBtn {
+      background:linear-gradient(135deg,#4f5de8,#6b78f0);
+      color:#fff !important; -webkit-text-fill-color:#fff !important;
+      box-shadow:0 4px 14px rgba(79,93,232,.32);
+    }
+    #genBtn:hover:not(:disabled) { opacity:.9; }
+    #genBtn:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
+
+    #cancelBtn {
+      display:none;
+      background:#fee2e2; color:#991b1b !important; -webkit-text-fill-color:#991b1b !important;
+      border:1px solid #fca5a5;
+      box-shadow:none; flex:0 0 auto; padding:11px 14px;
+    }
+    #cancelBtn.visible { display:flex; }
+    #cancelBtn:hover { background:#fecaca; }
+
+    /* Progress */
+    #prog-area { display:none; margin-top:13px; }
+    #prog-area.on { display:block; }
+    .pbar-wrap { height:5px; background:#e5e7eb; border-radius:99px; overflow:hidden; margin-bottom:6px; }
+    .pbar-fill  { height:100%; background:linear-gradient(90deg,#4f5de8,#7c86f7); border-radius:99px; transition:width .3s; width:0%; }
+    .pbar-info  { display:flex; justify-content:space-between; font-size:11.5px; }
+    .pbar-lbl   { font-weight:600; }
+    .pbar-cnt   { color:#6b7280 !important; }
+
+    /* Result */
+    #result { display:none; padding:9px 12px; border-radius:6px; font-size:12.5px; font-weight:600; margin-top:11px; text-align:center; }
+    #result.ok   { display:block; background:#ecfdf5; color:#065f46 !important; border:1px solid #6ee7b7; }
+    #result.err  { display:block; background:#fef2f2; color:#991b1b !important; border:1px solid #fca5a5; }
+    #result.warn { display:block; background:#fffbeb; color:#b45309 !important; border:1px solid #fde68a; }
+
+    /* Render zone – hors écran, isolée */
     #render-zone {
-      position: fixed;
-      top: 0;
-      left: -9999px;
-      width: 210mm;
-      background: white;
-      pointer-events: none;
-      z-index: -1;
+      position:fixed; top:0; left:-9999px;
+      width:794px; background:#fff; color:#000;
+      pointer-events:none; z-index:-1;
     }
-
-    /* ── GRIST MARKDOWN CSS (rendu identique à l'aperçu Grist) ─ */
-    .editor-preview {
-      font-family: sans-serif;
-      line-height: 1.5;
-      color: black;
-      padding: 12mm 15mm;
-      word-wrap: break-word;
+    #render-zone .ep {
+      font-family:sans-serif; font-size:13px; line-height:1.5;
+      color:#000 !important; background:#fff !important;
+      padding:28px 38px; width:794px;
     }
-    .editor-preview h1 { font-size: 22px; margin: 16px 0 8px; }
-    .editor-preview h2 { font-size: 18px; margin: 14px 0 7px; }
-    .editor-preview h3 { font-size: 15px; margin: 12px 0 6px; }
-    .editor-preview p  { margin: 8px 0; }
-    .editor-preview ul, .editor-preview ol { margin: 8px 0 8px 20px; }
-    .editor-preview li { margin: 3px 0; }
-    .editor-preview code { background-color: #dfe9ff; padding: 0 4px; border-radius: 4px; color: black; font-size: 0.9em; }
-    .editor-preview blockquote { border-left: 4px solid #ddd; margin: 0; padding: 0 1rem; color: #666; }
-    .editor-preview pre { background-color: #eef3ff; padding: 8px; border-radius: 4px; overflow-x: auto; }
-    .editor-preview pre code { background-color: unset; padding: unset; border-radius: unset; }
-    .editor-preview hr { margin: 1.5rem 0; border: none; border-top: 1px solid #ddd; }
-    .editor-preview img { max-width: 100%; height: auto; display: block; margin: 8px 0; }
-    .editor-preview table {
-      width: 100%; margin: 1rem 0;
-      border-collapse: collapse;
-      border: 1px solid lightgrey;
-    }
-    .editor-preview table th,
-    .editor-preview table td {
-      border: 1px solid lightgrey;
-      padding: 0.4rem 0.8rem;
-      text-align: left;
-    }
-    .editor-preview table th { background: #f0f2f7; font-weight: 700; }
-    .editor-preview table th:empty,
-    .editor-preview table td:empty { height: 0; padding: 0; border-top: none; }
-
-    /* ── PAGE BREAK SUPPORT ─────────────────────────────────── */
-    .editor-preview .page-break,
-    .editor-preview [style*="page-break-before: always"],
-    .editor-preview [style*="page-break-before:always"] {
-      page-break-before: always !important;
-      break-before: page !important;
-    }
+    #render-zone .ep * { color:inherit !important; }
+    #render-zone .ep h1 { font-size:20px; margin:12px 0 6px; }
+    #render-zone .ep h2 { font-size:16px; margin:10px 0 5px; }
+    #render-zone .ep h3 { font-size:14px; margin:8px 0 4px; }
+    #render-zone .ep p  { margin:5px 0; }
+    #render-zone .ep ul, #render-zone .ep ol { margin:5px 0 5px 18px; }
+    #render-zone .ep li { margin:2px 0; }
+    #render-zone .ep code { background:#dfe9ff; padding:0 4px; border-radius:4px; font-size:.9em; }
+    #render-zone .ep blockquote { border-left:4px solid #ddd; margin:0; padding:0 1rem; color:#555 !important; }
+    #render-zone .ep pre { background:#eef3ff; padding:8px; border-radius:4px; }
+    #render-zone .ep pre code { background:none; padding:0; }
+    #render-zone .ep hr { margin:1rem 0; border:none; border-top:1px solid #ddd; }
+    #render-zone .ep img { max-width:100%; height:auto; display:inline-block; }
+    #render-zone .ep table { width:100%; margin:8px 0; border-collapse:collapse; border:1px solid #bbb; }
+    #render-zone .ep table th,
+    #render-zone .ep table td { border:1px solid #bbb; padding:5px 10px; text-align:left; vertical-align:top; }
+    #render-zone .ep table th { background:#f0f2f7 !important; font-weight:700; }
+    #render-zone .ep table th:empty,
+    #render-zone .ep table td:empty { height:0; padding:0; }
+    #render-zone .ep .page-break,
+    #render-zone .ep [style*="page-break-before"] { page-break-before:always; }
   </style>
 </head>
-
 <body>
-  <div id="app">
+<div id="app">
+  <div class="card">
 
-    <!-- HEADER CARD -->
-    <div class="card">
-      <div class="header">
-        <div class="header-icon">📦</div>
-        <div>
-          <div class="header-title">Export PDF en Lot</div>
-          <div class="header-sub">Génère des PDF depuis une colonne HTML et les regroupe en ZIP</div>
-        </div>
+    <div class="hdr">
+      <div class="hdr-icon">📦</div>
+      <div>
+        <div class="hdr-t">Export PDF en Lot</div>
+        <div class="hdr-s">HTML Grist → PDF individuels → ZIP</div>
       </div>
-
-      <!-- STATUS MAPPING -->
-      <div id="column-status" class="waiting">
-        <span class="dot"></span>
-        <span id="column-status-text">En attente du mapping de la colonne HTML…</span>
-      </div>
-
-      <!-- PLAGE DE LIGNES -->
-      <div class="section-title">Plage de lignes</div>
-      <div class="row-2">
-        <div class="field">
-          <label>De la ligne N°</label>
-          <input type="number" id="startRow" value="1" min="1">
-        </div>
-        <div class="field">
-          <label>À la ligne N°</label>
-          <input type="number" id="endRow"   value="10" min="1">
-        </div>
-      </div>
-      <div class="hint" id="row-hint">— lignes disponibles : détection en cours…</div>
-
-      <hr style="margin: 16px 0;">
-
-      <!-- NOMMAGE DES FICHIERS -->
-      <div class="section-title">Nom des fichiers PDF</div>
-      <div class="field">
-        <label>Modèle de nom <span>(variables : {Nom_Colonne})</span></label>
-        <input type="text" id="namePattern" placeholder="Ex: PV_{Nom_Etablissement}_{Annee}">
-      </div>
-      <div class="callout">
-        <span class="ico">💡</span>
-        <span>
-          Utilisez <strong>{Nom_Colonne}</strong> pour insérer la valeur d'une colonne dans le nom.
-          Les caractères spéciaux sont remplacés par <code>_</code>.
-          Un identifiant unique est ajouté automatiquement pour éviter les doublons.
-        </span>
-      </div>
-
-      <hr style="margin: 16px 0;">
-
-      <!-- OPTIONS AVANCÉES -->
-      <div class="section-title">Options</div>
-      <div class="row-2">
-        <div class="field">
-          <label>Qualité image <span>(0.1–1.0)</span></label>
-          <input type="number" id="imgQuality" value="0.95" min="0.1" max="1.0" step="0.05">
-        </div>
-        <div class="field">
-          <label>Délai entre PDFs <span>(ms)</span></label>
-          <input type="number" id="delayBetween" value="300" min="0" max="2000" step="50">
-        </div>
-      </div>
-
-      <!-- BOUTON GÉNÉRER -->
-      <button id="generateBtn" disabled>
-        <span id="btn-icon">⚡</span>
-        <span id="btn-label">Générer le dossier ZIP</span>
-      </button>
-
-      <!-- BARRE DE PROGRESSION -->
-      <div id="progress-area">
-        <div class="progress-bar-wrap">
-          <div class="progress-bar-fill" id="progress-fill"></div>
-        </div>
-        <div class="progress-text">
-          <span class="progress-label" id="progress-label">Initialisation…</span>
-          <span class="progress-count" id="progress-count">0 / 0</span>
-        </div>
-      </div>
-
-      <!-- MESSAGE RÉSULTAT -->
-      <div id="result-msg"></div>
     </div>
 
+    <div id="col-status" class="waiting">
+      <span class="dot"></span>
+      <span id="col-txt">En attente du mapping de la colonne HTML →</span>
+    </div>
+
+    <div class="sec">Plage de lignes</div>
+    <div class="row2">
+      <div class="field">
+        <label>De la ligne N°</label>
+        <input type="number" id="startRow" value="1" min="1">
+      </div>
+      <div class="field">
+        <label>À la ligne N°</label>
+        <input type="number" id="endRow" value="10" min="1">
+      </div>
+    </div>
+    <div class="hint" id="row-hint">— chargement…</div>
+
+    <hr>
+
+    <div class="sec">Nom des fichiers PDF</div>
+    <div class="field">
+      <label>Modèle <span>(ex : PV_{Nom_Etablissement})</span></label>
+      <input type="text" id="namePattern" placeholder="PV_{Nom_Etablissement}">
+    </div>
+    <div class="callout">
+      <span>💡</span>
+      <span>Utilisez <code>{Nom_Colonne}</code> pour insérer la valeur d'une colonne dans le nom du fichier.</span>
+    </div>
+
+    <div class="btn-row">
+      <button id="genBtn" disabled>
+        <span id="btn-ico">⚡</span><span id="btn-lbl">Générer le ZIP</span>
+      </button>
+      <button id="cancelBtn" title="Annuler la génération">✕ Annuler</button>
+    </div>
+
+    <div id="prog-area">
+      <div class="pbar-wrap"><div class="pbar-fill" id="pbar"></div></div>
+      <div class="pbar-info">
+        <span class="pbar-lbl" id="prog-lbl">Initialisation…</span>
+        <span class="pbar-cnt" id="prog-cnt">0 / 0</span>
+      </div>
+    </div>
+
+    <div id="result"></div>
   </div>
+</div>
 
-  <!-- ZONE DE RENDU HORS ÉCRAN -->
-  <div id="render-zone"></div>
+<div id="render-zone"></div>
 
-  <script>
-  (function() {
-    'use strict';
+<script>
+(function () {
+  'use strict';
 
-    /* ── ÉTAT ──────────────────────────────────────────────── */
-    let mappedRecords  = [];   // Enregistrements mappés (avec colonne HTML)
-    let allTableRows   = [];   // Toutes les colonnes (pour le renommage)
-    let htmlColumnKey  = null; // Clé de la colonne HTML mappée
-    let isGenerating   = false;
+  const $ = id => document.getElementById(id);
+  const rz = $('render-zone');
 
-    /* ── ÉLÉMENTS DOM ──────────────────────────────────────── */
-    const $  = id => document.getElementById(id);
-    const generateBtn   = $('generateBtn');
-    const namePattern   = $('namePattern');
-    const progressArea  = $('progress-area');
-    const progressFill  = $('progress-fill');
-    const progressLabel = $('progress-label');
-    const progressCount = $('progress-count');
-    const resultMsg     = $('result-msg');
-    const renderZone    = $('render-zone');
+  let mappedRecords = [];
+  let allTableRows  = [];
+  let htmlColKey    = null;
+  let cancelled     = false;
+  let busy          = false;
 
-    /* ── GRIST INIT ────────────────────────────────────────── */
-    grist.ready({
-      requiredAccess: 'full',
-      columns: [
-        {
-          name: 'col_html',
-          title: 'Colonne HTML',
-          description: 'Colonne contenant le contenu HTML à convertir en PDF',
-          optional: false,
-          type: 'Text'
-        }
-      ]
-    });
+  /* ── Grist init ───────────────────────────────────────────── */
+  grist.ready({
+    requiredAccess: 'full',
+    columns: [{ name:'col_html', title:'Colonne HTML', optional:false, type:'Text' }]
+  });
 
-    /* ── RÉCEPTION DES DONNÉES MAPPÉES ─────────────────────── */
-    grist.onRecords(async (records, mappings) => {
-      mappedRecords = records || [];
+  grist.onRecords(async (records, mappings) => {
+    mappedRecords = records || [];
+    htmlColKey = (mappings && mappings.col_html)
+      ? mappings.col_html
+      : (records.length ? Object.keys(records[0]).filter(k => k !== 'id')[0] : null);
+    updateStatus();
+    $('row-hint').textContent = `— ${mappedRecords.length} ligne(s) disponible(s)`;
+    $('endRow').value = mappedRecords.length || 10;
+    await loadFullTable();
+  });
 
-      // Déterminer la clé de la colonne HTML à partir du mapping
-      if (mappings && mappings.col_html) {
-        htmlColumnKey = mappings.col_html;
-      } else if (records.length > 0) {
-        const keys = Object.keys(records[0]).filter(k => k !== 'id');
-        htmlColumnKey = keys[0] || null;
-      }
-
-      updateColumnStatus();
-
-      // Mise à jour du hint de plage
-      $('row-hint').textContent = `— ${mappedRecords.length} ligne(s) disponible(s) dans la sélection actuelle`;
-      $('endRow').value = Math.min(parseInt($('endRow').value) || 10, mappedRecords.length);
-
-      // Chargement de toutes les colonnes de la table pour le renommage
-      try {
-        await loadAllTableData();
-      } catch (e) {
-        console.warn('Chargement des données complètes échoué :', e);
-      }
-    });
-
-    /* ── CHARGEMENT DE TOUTES LES DONNÉES DE LA TABLE ──────── */
-    async function loadAllTableData() {
-      try {
-        const tableInfo = await grist.getTable();
-        // Compatibilité avec différentes versions de l'API Grist
-        let tableName;
-        if (typeof tableInfo.getTableId === 'function') {
-          tableName = await tableInfo.getTableId();
-        } else if (tableInfo._platform && typeof tableInfo._platform.getTableId === 'function') {
-          tableName = await tableInfo._platform.getTableId();
-        } else {
-          // Fallback : on travaille uniquement avec les enregistrements mappés
-          allTableRows = mappedRecords;
-          return;
-        }
-
-        const rawData = await grist.docApi.fetchTable(tableName);
-        const colNames = Object.keys(rawData);
-        const numRows  = rawData.id.length;
-
-        allTableRows = [];
-        for (let i = 0; i < numRows; i++) {
-          const row = {};
-          colNames.forEach(col => { row[col] = rawData[col][i]; });
-          allTableRows.push(row);
-        }
-      } catch (err) {
-        console.warn('fetchTable échoué, fallback sur mappedRecords :', err);
-        allTableRows = mappedRecords;
-      }
-    }
-
-    /* ── MISE À JOUR DU BADGE STATUT ───────────────────────── */
-    function updateColumnStatus() {
-      const statusEl  = $('column-status');
-      const statusTxt = $('column-status-text');
-
-      if (htmlColumnKey && mappedRecords.length > 0) {
-        statusEl.className = 'ready';
-        statusTxt.textContent = `✓ Colonne mappée : "${htmlColumnKey}" — ${mappedRecords.length} enregistrement(s) chargé(s)`;
-        generateBtn.disabled = false;
-      } else if (htmlColumnKey) {
-        statusEl.className = 'waiting';
-        statusTxt.textContent = 'Colonne mappée, aucune donnée dans la table.';
-        generateBtn.disabled = true;
-      } else {
-        statusEl.className = 'waiting';
-        statusTxt.textContent = 'En attente du mapping de la colonne HTML dans le panneau de configuration →';
-        generateBtn.disabled = true;
-      }
-    }
-
-    /* ── MOTEUR DE RENOMMAGE ───────────────────────────────── */
-    function buildFileName(rowData, fallbackIndex) {
-      const pattern = namePattern.value.trim();
-      const base    = pattern || `Document_${fallbackIndex + 1}`;
-
-      // Remplace chaque {Variable} par la valeur de la colonne correspondante
-      const resolved = base.replace(/\{([^}]+)\}/g, (match, colId) => {
-        const colKey = colId.trim();
-        if (colKey in rowData) {
-          return String(rowData[colKey] ?? '').trim();
-        }
-        return match; // Laisse la variable intacte si colonne inconnue
+  async function loadFullTable() {
+    try {
+      const tbl = await grist.getTable();
+      let id;
+      if (typeof tbl.getTableId === 'function')   id = await tbl.getTableId();
+      else if (tbl._platform?.getTableId)         id = await tbl._platform.getTableId();
+      else { allTableRows = mappedRecords; return; }
+      const raw  = await grist.docApi.fetchTable(id);
+      const cols = Object.keys(raw);
+      allTableRows = Array.from({ length: raw.id.length }, (_, i) => {
+        const r = {}; cols.forEach(c => r[c] = raw[c][i]); return r;
       });
+    } catch { allTableRows = mappedRecords; }
+  }
 
-      // Nettoyage : seuls alphanum, tirets, underscores, espaces, accents
-      return resolved
-        .replace(/[^\w\sÀ-ÿ\-]/gi, '_')
-        .replace(/\s+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '')
-        .slice(0, 120) || `Document_${fallbackIndex + 1}`;
+  function updateStatus() {
+    const el = $('col-status');
+    if (htmlColKey && mappedRecords.length > 0) {
+      el.className = 'ready';
+      $('col-txt').textContent = `✓ "${htmlColKey}" — ${mappedRecords.length} ligne(s)`;
+      $('genBtn').disabled = false;
+    } else {
+      el.className = 'waiting';
+      $('col-txt').textContent = 'En attente du mapping de la colonne HTML →';
+      $('genBtn').disabled = true;
     }
+  }
 
-    /* ── ATTENTE IMAGES ─────────────────────────────────────── */
-    function waitForImages(container, timeout = 2000) {
-      const images = Array.from(container.querySelectorAll('img'));
-      if (!images.length) return Promise.resolve();
-      return Promise.all(images.map(img =>
-        new Promise(resolve => {
-          if (img.complete && img.naturalWidth > 0) return resolve();
-          img.onload  = resolve;
-          img.onerror = resolve;
-          setTimeout(resolve, timeout);
-        })
-      ));
-    }
-
-    /* ── HELPERS UI ─────────────────────────────────────────── */
-    function setProgress(current, total, label) {
-      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-      progressFill.style.width  = pct + '%';
-      progressLabel.textContent = label;
-      progressCount.textContent = `${current} / ${total}`;
-    }
-
-    function showResult(type, msg) {
-      resultMsg.className = type;
-      resultMsg.textContent = msg;
-      resultMsg.style.display = 'block';
-    }
-
-    function hideResult() {
-      resultMsg.style.display = 'none';
-      resultMsg.className = '';
-    }
-
-    /* ── CONVERSION D'UN HTML EN BLOB PDF ───────────────────── */
-    async function htmlToBlob(htmlContent, fileName) {
-      // Injection dans la zone de rendu hors écran
-      renderZone.innerHTML = `<div class="editor-preview">${htmlContent}</div>`;
-      await waitForImages(renderZone);
-      // Petit délai pour laisser le navigateur appliquer le CSS
-      await new Promise(r => setTimeout(r, 150));
-
-      const quality = parseFloat($('imgQuality').value) || 0.95;
-
-      const opt = {
-        margin:      0,
-        filename:    fileName,
-        image:       { type: 'jpeg', quality: Math.min(1, Math.max(0.1, quality)) },
-        html2canvas: {
-          scale:     2.5,
-          useCORS:   true,
-          logging:   false,
-          scrollX:   0,
-          scrollY:   0,
-          windowWidth: 794  // ~210mm à 96dpi
-        },
-        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:   { mode: ['css', 'legacy'], before: '.page-break, [style*="page-break-before: always"]' }
-      };
-
-      const blob = await html2pdf()
-        .set(opt)
-        .from(renderZone.firstElementChild)
-        .output('blob');
-
-      renderZone.innerHTML = '';
-      return blob;
-    }
-
-    /* ── BOUCLE PRINCIPALE DE GÉNÉRATION ───────────────────── */
-    generateBtn.addEventListener('click', async () => {
-      if (isGenerating) return;
-
-      hideResult();
-
-      const start = parseInt($('startRow').value);
-      const end   = parseInt($('endRow').value);
-
-      if (isNaN(start) || isNaN(end) || start < 1 || end < start) {
-        showResult('error', '⚠️ Plage de lignes invalide. Vérifiez les champs "De" et "À".');
-        return;
-      }
-
-      const slice = mappedRecords.slice(start - 1, end);
-      if (slice.length === 0) {
-        showResult('warn', '⚠️ Aucun enregistrement trouvé dans cette plage.');
-        return;
-      }
-
-      if (!htmlColumnKey) {
-        showResult('error', '⚠️ Aucune colonne HTML mappée. Configurez le widget →');
-        return;
-      }
-
-      // ── Début de la génération ──────────────────────────────
-      isGenerating = true;
-      generateBtn.disabled = true;
-      $('btn-label').textContent = 'Génération en cours…';
-      $('btn-icon').textContent  = '⏳';
-      progressArea.className = 'visible';
-      setProgress(0, slice.length, 'Initialisation…');
-
-      const zip  = new JSZip();
-      const delay = parseInt($('delayBetween').value) || 300;
-      const usedNames = new Set();
-      let generated = 0;
-      let skipped   = 0;
-
-      for (let i = 0; i < slice.length; i++) {
-        const mappedRow = slice[i];
-        const htmlContent = mappedRow[htmlColumnKey];
-
-        if (!htmlContent || !htmlContent.trim()) {
-          skipped++;
-          setProgress(i + 1, slice.length, `Ligne ignorée (HTML vide) : ${start + i}`);
-          continue;
-        }
-
-        // Récupérer la ligne complète pour le renommage
-        const fullRow = allTableRows.find(r => r.id === mappedRow.id) || mappedRow;
-
-        // Construire un nom de fichier unique
-        let baseName = buildFileName(fullRow, start + i - 1);
-        let finalName = `${baseName}.pdf`;
-        if (usedNames.has(finalName)) {
-          finalName = `${baseName}_${mappedRow.id}.pdf`;
-        }
-        usedNames.add(finalName);
-
-        setProgress(i, slice.length, `Création : ${finalName}`);
-
-        try {
-          const blob = await htmlToBlob(htmlContent, finalName);
-          if (blob && blob.size > 500) {
-            zip.file(finalName, blob);
-            generated++;
-          } else {
-            skipped++;
-            console.warn(`PDF vide pour la ligne ${start + i} (${finalName})`);
-          }
-        } catch (err) {
-          skipped++;
-          console.error(`Erreur ligne ${start + i} :`, err);
-        }
-
-        setProgress(i + 1, slice.length, `${generated} PDF créés…`);
-
-        // Délai configurable entre chaque PDF (évite les crashes mémoire)
-        if (i < slice.length - 1) {
-          await new Promise(r => setTimeout(r, delay));
-        }
-      }
-
-      // ── Assemblage et téléchargement du ZIP ────────────────
-      if (generated > 0) {
-        setProgress(slice.length, slice.length, 'Assemblage du ZIP…');
-        const zipBlob = await zip.generateAsync({
-          type:               'blob',
-          compression:        'DEFLATE',
-          compressionOptions: { level: 6 }
+  /* ── Conversion image Grist (pièce jointe) → base64 ─────── */
+  async function resolveImages(container) {
+    const imgs = Array.from(container.querySelectorAll('img'));
+    await Promise.all(imgs.map(async img => {
+      const src = img.getAttribute('src') || '';
+      if (!src || src.startsWith('data:')) return;
+      try {
+        const url = src.startsWith('http') ? src : location.origin + src;
+        const r   = await fetch(url, { credentials:'include', mode: src.startsWith('http') ? 'cors' : 'same-origin' });
+        if (!r.ok) return;
+        const blob = await r.blob();
+        img.src = await new Promise((res, rej) => {
+          const fr = new FileReader();
+          fr.onload = () => res(fr.result);
+          fr.onerror = rej;
+          fr.readAsDataURL(blob);
         });
+      } catch (e) { console.warn('Image non chargée:', src, e.message); }
+    }));
+  }
 
-        const now  = new Date();
-        const date = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-        saveAs(zipBlob, `Export_PDF_${date}.zip`);
+  function waitImages(el, ms = 3000) {
+    const imgs = Array.from(el.querySelectorAll('img'));
+    if (!imgs.length) return Promise.resolve();
+    return Promise.all(imgs.map(img => new Promise(res => {
+      if (img.complete && img.naturalWidth > 0) return res();
+      img.onload = img.onerror = res;
+      setTimeout(res, ms);
+    })));
+  }
 
-        const msg = skipped > 0
-          ? `🎉 Terminé ! ${generated} PDF générés (${skipped} ligne(s) ignorée(s) car HTML vide ou erreur).`
-          : `🎉 Terminé ! ${generated} PDF générés et regroupés dans le ZIP.`;
-        showResult('success', msg);
-        setProgress(slice.length, slice.length, 'ZIP téléchargé !');
-      } else {
-        showResult('error', '❌ Aucun PDF valide n\'a pu être créé. Vérifiez le contenu HTML des lignes sélectionnées.');
+  /* ── HTML → Blob PDF ─────────────────────────────────────── */
+  async function htmlToBlob(html) {
+    const { jsPDF } = window.jspdf;
+    rz.innerHTML = `<div class="ep">${html}</div>`;
+    const ep = rz.firstElementChild;
+
+    await resolveImages(ep);
+    await waitImages(ep, 3000);
+    await new Promise(r => setTimeout(r, 250));
+
+    const A4W = 794, A4H = 1123, SCALE = 2;
+    const pages = Math.max(1, Math.ceil(ep.scrollHeight / A4H));
+    const pdf   = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+
+    for (let p = 0; p < pages; p++) {
+      if (p > 0) pdf.addPage();
+      const canvas = await html2canvas(ep, {
+        scale: SCALE, useCORS: true, allowTaint: false, logging: false,
+        scrollX: 0, scrollY: -(p * A4H),
+        windowWidth: A4W, windowHeight: A4H,
+        width: A4W, height: A4H,
+        backgroundColor: '#ffffff'
+      });
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297, '', 'FAST');
+      canvas.width = canvas.height = 1; // libère la mémoire
+    }
+
+    rz.innerHTML = '';
+    return pdf.output('blob');
+  }
+
+  /* ── Renommage ───────────────────────────────────────────── */
+  function buildName(row, idx) {
+    const pat = $('namePattern').value.trim() || `Document_${idx + 1}`;
+    return pat
+      .replace(/\{([^}]+)\}/g, (m, k) => (k.trim() in row ? String(row[k.trim()] ?? '').trim() : m))
+      .replace(/[^\wÀ-ÿ\- ]/gi, '_').replace(/\s+/g, '_').replace(/_+/g, '_')
+      .replace(/^_|_$/g, '').slice(0, 120) || `Document_${idx + 1}`;
+  }
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function setProgress(cur, tot, lbl) {
+    $('pbar').style.width     = tot > 0 ? Math.round(cur/tot*100)+'%' : '0%';
+    $('prog-lbl').textContent = lbl;
+    $('prog-cnt').textContent = `${cur} / ${tot}`;
+  }
+
+  function showResult(cls, msg) {
+    const el = $('result');
+    el.className = cls; el.textContent = msg; el.style.display = 'block';
+  }
+
+  /* ── Bouton Annuler ──────────────────────────────────────── */
+  $('cancelBtn').addEventListener('click', () => {
+    if (!busy) return;
+    cancelled = true;
+    $('prog-lbl').textContent = 'Annulation en cours…';
+  });
+
+  /* ── Génération ──────────────────────────────────────────── */
+  $('genBtn').addEventListener('click', async () => {
+    if (busy) return;
+    $('result').style.display = 'none';
+
+    const start = parseInt($('startRow').value);
+    const end   = parseInt($('endRow').value);
+    if (isNaN(start) || isNaN(end) || start < 1 || end < start)
+      return showResult('err', '⚠️ Plage invalide.');
+
+    const slice = mappedRecords.slice(start - 1, end);
+    if (!slice.length) return showResult('warn', '⚠️ Aucun enregistrement dans cette plage.');
+    if (!htmlColKey)   return showResult('err',  '⚠️ Aucune colonne HTML mappée.');
+
+    busy = true; cancelled = false;
+    $('genBtn').disabled = true;
+    $('btn-lbl').textContent = 'Génération en cours…';
+    $('btn-ico').textContent = '⏳';
+    $('cancelBtn').className = 'visible';
+    $('prog-area').className = 'on';
+    setProgress(0, slice.length, 'Initialisation…');
+
+    const zip = new JSZip();
+    const used = new Set();
+    let ok = 0, skip = 0;
+
+    for (let i = 0; i < slice.length; i++) {
+      if (cancelled) {
+        showResult('warn', `⚠️ Annulé après ${ok} PDF générés.`);
+        break;
       }
 
-      // ── Nettoyage et réactivation ──────────────────────────
-      renderZone.innerHTML = '';
-      isGenerating = false;
-      generateBtn.disabled = !htmlColumnKey;
-      $('btn-label').textContent = 'Générer le dossier ZIP';
-      $('btn-icon').textContent  = '⚡';
-    });
+      const mapped = slice[i];
+      const html   = mapped[htmlColKey];
+      if (!html || !html.trim()) { skip++; setProgress(i+1, slice.length, `Ligne ${start+i} ignorée`); continue; }
 
-  })();
-  </script>
+      const fullRow = allTableRows.find(r => r.id === mapped.id) || mapped;
+      let name = buildName(fullRow, start + i - 1);
+      let file = `${name}.pdf`;
+      if (used.has(file)) file = `${name}_id${mapped.id}.pdf`;
+      used.add(file);
+
+      setProgress(i, slice.length, `Création : ${file}`);
+      try {
+        const blob = await htmlToBlob(html);
+        if (blob && blob.size > 200) { zip.file(file, blob); ok++; }
+        else skip++;
+      } catch (e) { skip++; console.error(`Ligne ${start+i}:`, e); }
+
+      setProgress(i+1, slice.length, `${ok} PDF créés…`);
+      if (i < slice.length - 1) await sleep(400);
+    }
+
+    if (ok > 0 && !cancelled) {
+      setProgress(slice.length, slice.length, 'Assemblage du ZIP…');
+      const zb = await zip.generateAsync({ type:'blob', compression:'DEFLATE', compressionOptions:{level:5} });
+      const d  = new Date();
+      const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      saveAs(zb, `Export_PDF_${ds}.zip`);
+      setProgress(slice.length, slice.length, 'ZIP téléchargé ✓');
+      showResult('ok', `🎉 ${ok} PDF générés${skip ? ` (${skip} ignorée(s))` : ''}`);
+    } else if (!cancelled) {
+      showResult('err', '❌ Aucun PDF valide généré.');
+    }
+
+    rz.innerHTML = '';
+    busy = false; cancelled = false;
+    $('genBtn').disabled = false;
+    $('btn-lbl').textContent = 'Générer le ZIP';
+    $('btn-ico').textContent = '⚡';
+    $('cancelBtn').className = '';
+  });
+
+})();
+</script>
 </body>
 </html>
