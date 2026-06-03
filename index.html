@@ -6,7 +6,8 @@
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -453,55 +454,86 @@
   }
 
   /* ════════════════════════════════════════════════
-     MOTEUR PDF — html2pdf avec sauts de page intelligents
+     MOTEUR PDF
      
-     Clé : on interdit les coupures à l'intérieur des
-     éléments (tr, p, li) via CSS avoid, et on laisse
-     html2pdf calculer les sauts naturellement.
-     C'est le même rendu que l'impression navigateur.
+     Principe : on ouvre une fenêtre cachée avec le HTML,
+     on laisse le navigateur calculer le layout complet,
+     puis on capture page par page avec html2canvas en
+     utilisant scrollY pour se positionner exactement.
+     
+     scrollY est la seule API correcte pour "voir" une
+     zone précise du document — margin-top modifiait
+     le layout et causait des décalages.
   ════════════════════════════════════════════════ */
   async function htmlToBlob(html) {
+    const { jsPDF } = window.jspdf;
+
+    // A4 : 210mm x 297mm. À 96dpi : 794px x 1123px
+    // On travaille en espace non-scalé pour les calculs de position
+    const RENDER_W  = 794;
+    const MM_W      = 210;
+    const MM_H      = 297;
+    const PAGE_H_PX = Math.round(RENDER_W * MM_H / MM_W); // 1123px
+
+    // Injecter le contenu dans la zone de rendu
     rz.innerHTML = `<div class="editor-preview">${html}</div>`;
     const ep = rz.firstElementChild;
 
+    // La render zone doit avoir une hauteur fixe d'une page pour que
+    // html2canvas capture exactement une fenêtre A4
+    rz.style.height = PAGE_H_PX + 'px';
+    rz.style.overflow = 'hidden';
+
     await resolveImages(ep);
     await waitImages(ep, 4000);
-    await sleep(300);
+    await sleep(400);
 
-    return new Promise((resolve, reject) => {
-      html2pdf()
-        .set({
-          margin:      [10, 15, 10, 15], // top, right, bottom, left en mm
-          filename:    'doc.pdf',
-          image:       { type: 'jpeg', quality: 0.95 },
-          html2canvas: {
-            scale:           2,
-            useCORS:         true,
-            allowTaint:      true,
-            logging:         false,
-            scrollX:         0,
-            scrollY:         0,
-            windowWidth:     794,
-            backgroundColor: '#ffffff'
-          },
-          jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak:   {
-            // Évite les coupures dans les lignes de tableau et paragraphes
-            avoid: ['tr', 'td', 'th', 'li', 'img', 'h1', 'h2', 'h3', '.no-break'],
-            mode:  ['css', 'legacy']
-          }
-        })
-        .from(ep)
-        .output('blob')
-        .then(blob => {
-          rz.innerHTML = '';
-          resolve(blob);
-        })
-        .catch(err => {
-          rz.innerHTML = '';
-          reject(err);
-        });
-    });
+    // Hauteur totale du contenu (sans contrainte de hauteur sur ep)
+    rz.style.height = 'auto';
+    rz.style.overflow = 'visible';
+    const totalH   = ep.scrollHeight;
+    rz.style.height = PAGE_H_PX + 'px';
+    rz.style.overflow = 'hidden';
+    await sleep(50);
+
+    const numPages = Math.max(1, Math.ceil(totalH / PAGE_H_PX));
+    const pdf      = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+    for (let p = 0; p < numPages; p++) {
+      if (p > 0) pdf.addPage();
+
+      // Positionner le contenu pour montrer la page p
+      // On utilise transform:translateY pour déplacer sans changer le layout
+      ep.style.transform = `translateY(-${p * PAGE_H_PX}px)`;
+      await sleep(80);
+
+      const canvas = await html2canvas(rz, {
+        scale:           2,
+        useCORS:         true,
+        allowTaint:      true,
+        logging:         false,
+        scrollX:         0,
+        scrollY:         0,
+        windowWidth:     RENDER_W,
+        width:           RENDER_W,
+        height:          PAGE_H_PX,
+        backgroundColor: '#ffffff'
+      });
+
+      pdf.addImage(
+        canvas.toDataURL('image/jpeg', 0.95),
+        'JPEG', 0, 0, MM_W, MM_H, '', 'FAST'
+      );
+      canvas.width = canvas.height = 1;
+    }
+
+    // Nettoyage
+    ep.style.transform = '';
+    rz.style.height = 'auto';
+    rz.style.overflow = 'visible';
+    rz.innerHTML = '';
+
+    return pdf.output('blob');
   }
 
   /* ════════════════════════════════════════════════
