@@ -43,14 +43,19 @@
     .field label { display:block; font-weight:600; font-size:12px; margin-bottom:4px; }
     .field label span { font-weight:400; color:#6b7280 !important; }
 
-    input[type="text"], input[type="number"] {
+    input[type="text"], input[type="number"], select {
       display:block; width:100%; padding:8px 10px;
       border:1.5px solid #d1d5db; border-radius:6px;
       font-size:13px; font-family:inherit;
       background:#f9fafb !important;
       color:#111827 !important; -webkit-text-fill-color:#111827 !important;
+      appearance: none; -webkit-appearance: none;
     }
-    input:focus { outline:none; border-color:#4f5de8; box-shadow:0 0 0 3px rgba(79,93,232,.13); background:#fff !important; }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
+    }
+    input:focus, select:focus { outline:none; border-color:#4f5de8; box-shadow:0 0 0 3px rgba(79,93,232,.13); background:#fff !important; }
     input::placeholder { color:#9ca3af !important; -webkit-text-fill-color:#9ca3af !important; }
 
     .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -101,123 +106,37 @@
     #result.err  { display:block; background:#fef2f2; color:#991b1b !important; border:1px solid #fca5a5; }
     #result.warn { display:block; background:#fffbeb; color:#b45309 !important; border:1px solid #fde68a; }
 
-    /* ══════════════════════════════════════════════════════
-       ZONE DE RENDU — CSS copié EXACTEMENT du widget Markdown
-       Grist (EasyMDE editor-preview) pour rendu identique
-       ══════════════════════════════════════════════════════ */
+    /* Render zone */
     #render-zone {
-      position: fixed;
-      top: 0;
-      left: -9999px;
-      width: 794px;
-      background: white;
-      pointer-events: none;
-      z-index: -1;
+      position: fixed; top: 0; left: -9999px;
+      width: 794px; background: white;
+      pointer-events: none; z-index: -1;
     }
-
-    /* Conteneur principal — identique à ce que EasyMDE génère */
     #render-zone .editor-preview {
-      font-family: sans-serif;
-      font-size: 14px;
-      line-height: 1.4;
-      color: black;
-      background: white;
-      padding: 10mm 15mm;
-      width: 794px;
-      /* Pas de color: inherit pour rester identique au widget */
+      font-family: sans-serif; font-size: 14px; line-height: 1.4;
+      color: black; background: white; padding: 10mm 15mm; width: 794px;
     }
-
-    /* Code inline */
-    #render-zone .editor-preview code {
-      background-color: #dfe9ff;
-      padding: 0 4px;
-      border-radius: 4px;
-      color: black;
-    }
-
-    /* Blockquote */
-    #render-zone .editor-preview blockquote {
-      border-left: 4px solid #ddd;
-      margin: 0;
-      padding: 0 1rem;
-      color: #666;
-    }
-
-    /* Blocs de code */
-    #render-zone .editor-preview pre {
-      background-color: #eef3ff;
-      padding: 8px;
-      border-radius: 4px;
-    }
-    #render-zone .editor-preview pre code {
-      background-color: unset;
-      padding: unset;
-      border-radius: unset;
-    }
-
-    /* Séparateur horizontal */
-    #render-zone .editor-preview hr {
-      margin-top: 2rem;
-      margin-bottom: 2rem;
-      border: none;
-      border-top: 1px solid #ddd;
-    }
-
-    /* Tableaux — CSS EXACT du widget Grist */
-    #render-zone .editor-preview table {
-      margin: 2rem 0;
-      border-spacing: 0;
-      border: 1px solid lightgrey;
-      border-left: none;
-      border-top: none;
-      border-collapse: separate; /* intentionnel comme dans le widget */
-      width: 100%;
-    }
+    #render-zone .editor-preview code { background-color:#dfe9ff; padding:0 4px; border-radius:4px; color:black; }
+    #render-zone .editor-preview blockquote { border-left:4px solid #ddd; margin:0; padding:0 1rem; color:#666; }
+    #render-zone .editor-preview pre { background-color:#eef3ff; padding:8px; border-radius:4px; }
+    #render-zone .editor-preview pre code { background-color:unset; padding:unset; border-radius:unset; }
+    #render-zone .editor-preview hr { margin-top:2rem; margin-bottom:2rem; border:none; border-top:1px solid #ddd; }
+    #render-zone .editor-preview table { margin:2rem 0; border-spacing:0; border:1px solid lightgrey; border-left:none; border-top:none; border-collapse:separate; width:100%; }
     #render-zone .editor-preview table th,
-    #render-zone .editor-preview table td {
-      border: 1px solid lightgrey;
-      padding: 0.5rem 1rem;
-      border-right: none;
-      border-bottom: none;
-      color: black;
-    }
+    #render-zone .editor-preview table td { border:1px solid lightgrey; padding:0.5rem 1rem; border-right:none; border-bottom:none; color:black; }
     #render-zone .editor-preview table th:empty,
-    #render-zone .editor-preview table td:empty {
-      height: 0px;
-      padding: 0px;
-      border-top: none;
-    }
-
-    /* Évite les coupures à l'intérieur des lignes de tableau et blocs */
-    #render-zone .editor-preview tr,
-    #render-zone .editor-preview td,
-    #render-zone .editor-preview th,
-    #render-zone .editor-preview li,
-    #render-zone .editor-preview img,
-    #render-zone .editor-preview h1,
-    #render-zone .editor-preview h2,
-    #render-zone .editor-preview h3 {
-      page-break-inside: avoid;
-      break-inside: avoid;
-    }
-
-    /* Images */
-    #render-zone .editor-preview img {
-      max-width: 100%;
-      height: auto;
-    }
-
-    /* Paragraphes et titres */
-    #render-zone .editor-preview p   { margin: 0.5em 0; }
-    #render-zone .editor-preview h1  { font-size: 2em;   margin: 0.67em 0; font-weight: bold; }
-    #render-zone .editor-preview h2  { font-size: 1.5em; margin: 0.75em 0; font-weight: bold; }
-    #render-zone .editor-preview h3  { font-size: 1.17em;margin: 0.83em 0; font-weight: bold; }
+    #render-zone .editor-preview table td:empty { height:0px; padding:0px; border-top:none; }
+    #render-zone .editor-preview img { max-width:100%; height:auto; }
+    #render-zone .editor-preview p   { margin:0.5em 0; }
+    #render-zone .editor-preview h1  { font-size:2em;    margin:0.67em 0; font-weight:bold; }
+    #render-zone .editor-preview h2  { font-size:1.5em;  margin:0.75em 0; font-weight:bold; }
+    #render-zone .editor-preview h3  { font-size:1.17em; margin:0.83em 0; font-weight:bold; }
     #render-zone .editor-preview ul,
-    #render-zone .editor-preview ol  { margin: 0.5em 0 0.5em 2em; }
-    #render-zone .editor-preview li  { margin: 0.25em 0; }
-    #render-zone .editor-preview strong { font-weight: bold; }
-    #render-zone .editor-preview em     { font-style: italic; }
-    #render-zone .editor-preview u      { text-decoration: underline; }
+    #render-zone .editor-preview ol  { margin:0.5em 0 0.5em 2em; }
+    #render-zone .editor-preview li  { margin:0.25em 0; }
+    #render-zone .editor-preview strong { font-weight:bold; }
+    #render-zone .editor-preview em     { font-style:italic; }
+    #render-zone .editor-preview u      { text-decoration:underline; }
   </style>
 </head>
 <body>
@@ -236,6 +155,21 @@
       <span id="col-txt">En attente du mapping de la colonne HTML →</span>
     </div>
 
+    <!-- Sélection du modèle -->
+    <div class="sec">Modèle à appliquer</div>
+    <div class="field">
+      <label>Modèle de document</label>
+      <select id="modelSelect">
+        <option value="">— Chargement des modèles… —</option>
+      </select>
+    </div>
+    <div class="callout">
+      <span>ℹ️</span>
+      <span>Le modèle sera appliqué à tous les établissements de la plage. Les valeurs précédentes seront <strong>restaurées</strong> après génération.</span>
+    </div>
+
+    <hr>
+
     <div class="sec">Plage de lignes</div>
     <div class="row2">
       <div class="field">
@@ -253,12 +187,8 @@
 
     <div class="sec">Nom des fichiers PDF</div>
     <div class="field">
-      <label>Modèle <span>(variables : {Nom_Colonne})</span></label>
+      <label>Modèle de nom <span>(variables : {Nom_Colonne})</span></label>
       <input type="text" id="namePattern" value="{Nom_fichier}">
-    </div>
-    <div class="callout">
-      <span>💡</span>
-      <span>Utilisez <code>{Nom_Colonne}</code> pour insérer la valeur d'une colonne Grist dans le nom du fichier.</span>
     </div>
 
     <div class="btn-row">
@@ -288,32 +218,51 @@
 
   const $ = id => document.getElementById(id);
   const rz = $('render-zone');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   let mappedRecords = [];
   let allTableRows  = [];
   let htmlColKey    = null;
+  let tableId       = null;
   let cancelled     = false;
   let busy          = false;
 
+  // Résolveur de mise à jour des données depuis onRecords
+  let pendingRecordsResolve = null;
+
   /* ════════════════════════════════════════════════
-     GRIST
+     GRIST INIT
   ════════════════════════════════════════════════ */
   grist.ready({
     requiredAccess: 'full',
     columns: [{ name:'col_html', title:'Colonne HTML', optional:false, type:'Text' }]
   });
 
+  grist.on('message', e => { if (e.tableId) tableId = e.tableId; });
+
   grist.onRecords(async (records, mappings) => {
     mappedRecords = records || [];
     htmlColKey = (mappings && mappings.col_html)
       ? mappings.col_html
       : (records.length ? Object.keys(records[0]).filter(k => k !== 'id')[0] : null);
+
     updateStatus();
     $('row-hint').textContent = `— ${mappedRecords.length} ligne(s) disponible(s)`;
-    $('endRow').value = mappedRecords.length || 10;
-    await loadFullTable();
+    if (!busy) $('endRow').value = mappedRecords.length || 10;
+
+    // Si une génération attend la mise à jour des données, la débloquer
+    if (pendingRecordsResolve) {
+      const fn = pendingRecordsResolve;
+      pendingRecordsResolve = null;
+      fn(records);
+    }
+
+    if (!busy) await loadFullTable();
   });
 
+  /* ════════════════════════════════════════════════
+     CHARGEMENT TABLE COMPLÈTE + MODÈLES
+  ════════════════════════════════════════════════ */
   async function loadFullTable() {
     try {
       const tbl = await grist.getTable();
@@ -322,21 +271,43 @@
       else if (tbl._platform?.getTableId)       id = await tbl._platform.getTableId();
       else { allTableRows = mappedRecords; return; }
 
+      if (!tableId) tableId = id;
+
       const raw  = await grist.docApi.fetchTable(id);
       const cols = Object.keys(raw);
       const n    = raw.id.length;
-
       allTableRows = Array.from({ length: n }, (_, i) => {
-        const r = {};
-        cols.forEach(c => { r[c] = raw[c][i]; });
-        return r;
+        const r = {}; cols.forEach(c => { r[c] = raw[c][i]; }); return r;
       });
 
-      console.log('Colonnes disponibles:', cols);
-      console.log('Exemple ligne 0:', allTableRows[0]);
+      await loadModeles();
     } catch (e) {
       console.warn('fetchTable échoué:', e);
       allTableRows = mappedRecords;
+    }
+  }
+
+  async function loadModeles() {
+    try {
+      const raw  = await grist.docApi.fetchTable('Modeles');
+      const n    = raw.id.length;
+      const sel  = $('modelSelect');
+      sel.innerHTML = '<option value="">— Choisir un modèle —</option>';
+
+      for (let i = 0; i < n; i++) {
+        // Cherche la colonne de nom du modèle
+        const nom = raw['Nom_du_modele']?.[i]
+                 || raw['Nom']?.[i]
+                 || raw['nom']?.[i]
+                 || `Modèle ${raw.id[i]}`;
+        const opt = document.createElement('option');
+        opt.value       = raw.id[i];   // ID Grist de la ligne Modeles
+        opt.textContent = nom;
+        sel.appendChild(opt);
+      }
+    } catch (e) {
+      console.warn('Impossible de charger la table Modeles:', e);
+      $('modelSelect').innerHTML = '<option value="">— Table Modeles introuvable —</option>';
     }
   }
 
@@ -354,68 +325,58 @@
   }
 
   /* ════════════════════════════════════════════════
-     RENOMMAGE — gère les colonnes de référence Grist
+     APPLIQUER UN MODÈLE À UNE LISTE DE LIGNES
+     Écrit l'ID du modèle dans la colonne "Modele"
+     de chaque établissement puis attend que onRecords
+     se redéclenche avec le HTML recalculé.
+  ════════════════════════════════════════════════ */
+  async function setModeleForRows(rowIds, modeleId) {
+    const actions = rowIds.map(id => ['UpdateRecord', tableId, id, { Modele: modeleId }]);
+    await grist.docApi.applyUserActions(actions);
+  }
 
-     Grist stocke les colonnes de référence sous deux formes
-     dans fetchTable :
-       - "Modele"        → l'ID (entier) de la ligne liée
-       - "Modele.Nom_du_modele" → la valeur dépliée (si elle existe)
+  function waitForRecordsUpdate(timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pendingRecordsResolve = null;
+        reject(new Error('Timeout: Grist n\'a pas recalculé les formules dans les temps.'));
+      }, timeoutMs);
 
-     Le pattern {Modele.Nom_du_modele} cherche d'abord
-     la clé "Modele.Nom_du_modele" dans la ligne,
-     puis tente "Modele_Nom_du_modele" (underscore, autre convention),
-     puis remonte sur la valeur brute de "Modele".
+      pendingRecordsResolve = (records) => {
+        clearTimeout(timer);
+        resolve(records);
+      };
+    });
+  }
+
+  /* ════════════════════════════════════════════════
+     RENOMMAGE
   ════════════════════════════════════════════════ */
   function resolveVar(row, key) {
-    // 1. Clé exacte (ex: "N_Etablissement", "Nom_du_modele")
     if (key in row) return String(row[key] ?? '').trim();
-
-    // 2. Notation pointée pour colonnes de référence : "Modele.Nom_du_modele"
-    //    Grist aplatit souvent sous la forme "Modele.Nom_du_modele" dans fetchTable
     if (key.includes('.')) {
-      // Essai direct avec le point
-      if (key in row) return String(row[key] ?? '').trim();
-
-      // Essai avec underscore à la place du point : "Modele_Nom_du_modele"
-      const underscoreKey = key.replace('.', '_');
-      if (underscoreKey in row) return String(row[underscoreKey] ?? '').trim();
-
-      // Essai : parfois Grist préfixe avec le nom de la table liée
-      // ex: "Modeles.Nom_du_modele"
-      const parts = key.split('.');
-      const colRef  = parts[0];   // "Modele"
-      const colProp = parts[1];   // "Nom_du_modele"
-
-      // Cherche toutes les clés qui contiennent colProp après un point ou underscore
-      const candidates = Object.keys(row).filter(k =>
-        k === colProp ||
-        k.endsWith('.' + colProp) ||
-        k.endsWith('_' + colProp) ||
-        k === colRef + '.' + colProp ||
-        k === colRef + '_' + colProp
+      const uk = key.replace('.', '_');
+      if (uk in row) return String(row[uk] ?? '').trim();
+      const [colRef, colProp] = key.split('.');
+      const cand = Object.keys(row).find(k =>
+        k === colProp || k.endsWith('_' + colProp) || k === colRef + '_' + colProp
       );
-      if (candidates.length > 0) return String(row[candidates[0]] ?? '').trim();
-
-      // Fallback : retourner la valeur de la colonne de référence parente (l'ID)
+      if (cand) return String(row[cand] ?? '').trim();
       if (colRef in row) return String(row[colRef] ?? '').trim();
     }
-
-    return ''; // variable inconnue → chaîne vide plutôt que laisser {Variable}
+    return '';
   }
 
   function buildName(row, idx) {
     const pat = $('namePattern').value.trim() || `Document_${idx + 1}`;
-    const resolved = pat.replace(/\{([^}]+)\}/g, (m, k) => resolveVar(row, k.trim()));
-    return resolved
-      .replace(/[<>:"/\\|?*]/g, '_')
-      .replace(/\s+/g, ' ')
-      .trim()
+    return pat
+      .replace(/\{([^}]+)\}/g, (m, k) => resolveVar(row, k.trim()))
+      .replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim()
       .slice(0, 200) || `Document_${idx + 1}`;
   }
 
   /* ════════════════════════════════════════════════
-     IMAGES — résolution des pièces jointes Grist
-     (URLs /api/docs/.../attachments/N/download)
+     IMAGES
   ════════════════════════════════════════════════ */
   async function resolveImages(container) {
     const imgs = Array.from(container.querySelectorAll('img'));
@@ -426,19 +387,15 @@
         const url = src.startsWith('http') ? src : (location.origin + src);
         const r   = await fetch(url, { credentials: 'include' });
         if (!r.ok) return;
-        const blob = await r.blob();
-        img.src = await blobToBase64(blob);
-      } catch (e) {
-        console.warn('Image non résolue:', src, e.message);
-      }
+        img.src = await blobToBase64(await r.blob());
+      } catch (e) { console.warn('Image non résolue:', src); }
     }));
   }
 
   function blobToBase64(blob) {
     return new Promise((res, rej) => {
       const fr = new FileReader();
-      fr.onload  = () => res(fr.result);
-      fr.onerror = rej;
+      fr.onload = () => res(fr.result); fr.onerror = rej;
       fr.readAsDataURL(blob);
     });
   }
@@ -454,109 +411,63 @@
   }
 
   /* ════════════════════════════════════════════════
-     MOTEUR PDF
-     
-     Principe : on ouvre une fenêtre cachée avec le HTML,
-     on laisse le navigateur calculer le layout complet,
-     puis on capture page par page avec html2canvas en
-     utilisant scrollY pour se positionner exactement.
-     
-     scrollY est la seule API correcte pour "voir" une
-     zone précise du document — margin-top modifiait
-     le layout et causait des décalages.
+     MOTEUR PDF (translateY)
   ════════════════════════════════════════════════ */
   async function htmlToBlob(html) {
     const { jsPDF } = window.jspdf;
-
-    // A4 : 210mm x 297mm. À 96dpi : 794px x 1123px
-    // On travaille en espace non-scalé pour les calculs de position
     const RENDER_W  = 794;
-    const MM_W      = 210;
-    const MM_H      = 297;
-    const PAGE_H_PX = Math.round(RENDER_W * MM_H / MM_W); // 1123px
+    const MM_W = 210, MM_H = 297;
+    const PAGE_H_PX = Math.round(RENDER_W * MM_H / MM_W);
 
-    // Injecter le contenu dans la zone de rendu
     rz.innerHTML = `<div class="editor-preview">${html}</div>`;
     const ep = rz.firstElementChild;
-
-    // La render zone doit avoir une hauteur fixe d'une page pour que
-    // html2canvas capture exactement une fenêtre A4
-    rz.style.height = PAGE_H_PX + 'px';
-    rz.style.overflow = 'hidden';
+    rz.style.height = 'auto'; rz.style.overflow = 'visible';
 
     await resolveImages(ep);
     await waitImages(ep, 4000);
     await sleep(400);
 
-    // Hauteur totale du contenu (sans contrainte de hauteur sur ep)
-    rz.style.height = 'auto';
-    rz.style.overflow = 'visible';
     const totalH   = ep.scrollHeight;
+    const numPages = Math.max(1, Math.ceil(totalH / PAGE_H_PX));
+    const pdf      = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+
     rz.style.height = PAGE_H_PX + 'px';
     rz.style.overflow = 'hidden';
-    await sleep(50);
-
-    const numPages = Math.max(1, Math.ceil(totalH / PAGE_H_PX));
-    const pdf      = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
     for (let p = 0; p < numPages; p++) {
       if (p > 0) pdf.addPage();
-
-      // Positionner le contenu pour montrer la page p
-      // On utilise transform:translateY pour déplacer sans changer le layout
       ep.style.transform = `translateY(-${p * PAGE_H_PX}px)`;
-      await sleep(80);
+      ep.style.transformOrigin = 'top left';
+      await sleep(60);
 
       const canvas = await html2canvas(rz, {
-        scale:           2,
-        useCORS:         true,
-        allowTaint:      true,
-        logging:         false,
-        scrollX:         0,
-        scrollY:         0,
-        windowWidth:     RENDER_W,
-        width:           RENDER_W,
-        height:          PAGE_H_PX,
-        backgroundColor: '#ffffff'
+        scale:2, useCORS:true, allowTaint:true, logging:false,
+        scrollX:0, scrollY:0, windowWidth:RENDER_W,
+        width:RENDER_W, height:PAGE_H_PX, backgroundColor:'#ffffff'
       });
-
-      pdf.addImage(
-        canvas.toDataURL('image/jpeg', 0.95),
-        'JPEG', 0, 0, MM_W, MM_H, '', 'FAST'
-      );
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, MM_W, MM_H, '', 'FAST');
       canvas.width = canvas.height = 1;
     }
 
-    // Nettoyage
     ep.style.transform = '';
-    rz.style.height = 'auto';
-    rz.style.overflow = 'visible';
+    rz.style.height = 'auto'; rz.style.overflow = 'visible';
     rz.innerHTML = '';
-
     return pdf.output('blob');
   }
 
   /* ════════════════════════════════════════════════
-     HELPERS
+     UI HELPERS
   ════════════════════════════════════════════════ */
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-
   function setProgress(cur, tot, lbl) {
-    $('pbar').style.width     = tot > 0 ? Math.round(cur / tot * 100) + '%' : '0%';
+    $('pbar').style.width     = tot > 0 ? Math.round(cur/tot*100)+'%' : '0%';
     $('prog-lbl').textContent = lbl;
     $('prog-cnt').textContent = `${cur} / ${tot}`;
   }
-
   function showResult(cls, msg) {
     const el = $('result');
-    el.className = cls;
-    el.textContent = msg;
-    el.style.display = 'block';
+    el.className = cls; el.textContent = msg; el.style.display = 'block';
   }
 
-  /* ════════════════════════════════════════════════
-     ANNULER
-  ════════════════════════════════════════════════ */
   $('cancelBtn').addEventListener('click', () => {
     if (!busy) return;
     cancelled = true;
@@ -569,6 +480,9 @@
   $('genBtn').addEventListener('click', async () => {
     if (busy) return;
     $('result').style.display = 'none';
+
+    const modeleId = parseInt($('modelSelect').value);
+    if (!modeleId) return showResult('warn', '⚠️ Veuillez choisir un modèle.');
 
     const start = parseInt($('startRow').value);
     const end   = parseInt($('endRow').value);
@@ -585,62 +499,90 @@
     $('btn-ico').textContent = '⏳';
     $('cancelBtn').className = 'visible';
     $('prog-area').className = 'on';
-    setProgress(0, slice.length, 'Initialisation…');
+    $('result').style.display = 'none';
 
-    const zip  = new JSZip();
-    const used = new Set();
-    let ok = 0, skip = 0;
+    // Sauvegarder les anciennes valeurs de Modele pour restauration
+    const rowIds      = slice.map(r => r.id);
+    const oldModeles  = rowIds.map(id => {
+      const row = allTableRows.find(r => r.id === id);
+      return row ? row['Modele'] : null;
+    });
 
-    for (let i = 0; i < slice.length; i++) {
-      if (cancelled) {
-        showResult('warn', `⚠️ Annulé après ${ok} PDF générés.`);
-        break;
-      }
+    try {
+      // ÉTAPE 1 : Appliquer le modèle à tous les établissements de la plage
+      setProgress(0, slice.length, 'Application du modèle…');
+      await setModeleForRows(rowIds, modeleId);
 
-      const mapped = slice[i];
-      const html   = mapped[htmlColKey];
-      if (!html || !html.trim()) {
-        skip++;
-        setProgress(i + 1, slice.length, `Ligne ${start + i} ignorée (vide)`);
-        continue;
-      }
+      // ÉTAPE 2 : Attendre que Grist recalcule les formules HTML
+      setProgress(0, slice.length, 'Attente du recalcul Grist…');
+      const updatedRecords = await waitForRecordsUpdate(20000);
 
-      const fullRow = allTableRows.find(r => r.id === mapped.id) || mapped;
-      let name = buildName(fullRow, start + i - 1);
-      let file = `${name}.pdf`;
-      if (used.has(file)) file = `${name}_id${mapped.id}.pdf`;
-      used.add(file);
+      // ÉTAPE 3 : Générer les PDF avec le HTML recalculé
+      const zip  = new JSZip();
+      const used = new Set();
+      let ok = 0, skip = 0;
 
-      setProgress(i, slice.length, `Création : ${file}`);
+      for (let i = 0; i < slice.length; i++) {
+        if (cancelled) { showResult('warn', `⚠️ Annulé après ${ok} PDF générés.`); break; }
 
-      try {
-        const blob = await htmlToBlob(html);
-        if (blob && blob.size > 500) {
-          zip.file(file, blob);
-          ok++;
-        } else {
+        const mapped     = slice[i];
+        // Récupère la version mise à jour depuis updatedRecords
+        const updatedRow = updatedRecords.find(r => r.id === mapped.id) || mapped;
+        const html       = updatedRow[htmlColKey];
+
+        if (!html || !html.trim()) {
           skip++;
-          console.warn(`PDF vide — ligne ${start + i}`);
+          setProgress(i + 1, slice.length, `Ligne ${start + i} ignorée (HTML vide)`);
+          continue;
         }
-      } catch (e) {
-        skip++;
-        console.error(`Erreur ligne ${start + i}:`, e);
+
+        // Pour le renommage, chercher dans allTableRows (qui a toutes les colonnes)
+        const fullRow = allTableRows.find(r => r.id === mapped.id) || mapped;
+        let name = buildName(fullRow, start + i - 1);
+        let file = `${name}.pdf`;
+        if (used.has(file)) file = `${name}_id${mapped.id}.pdf`;
+        used.add(file);
+
+        setProgress(i, slice.length, `Création : ${file}`);
+        try {
+          const blob = await htmlToBlob(html);
+          if (blob && blob.size > 500) { zip.file(file, blob); ok++; }
+          else skip++;
+        } catch (e) { skip++; console.error(`Erreur ligne ${start+i}:`, e); }
+
+        setProgress(i + 1, slice.length, `${ok} PDF créés…`);
+        if (i < slice.length - 1) await sleep(400);
       }
 
-      setProgress(i + 1, slice.length, `${ok} PDF créés…`);
-      if (i < slice.length - 1) await sleep(400);
-    }
+      // ÉTAPE 4 : Restaurer les anciennes valeurs de Modele
+      setProgress(slice.length, slice.length, 'Restauration des données…');
+      const restoreActions = rowIds
+        .map((id, i) => ['UpdateRecord', tableId, id, { Modele: oldModeles[i] ?? 0 }]);
+      await grist.docApi.applyUserActions(restoreActions);
 
-    if (ok > 0 && !cancelled) {
-      setProgress(slice.length, slice.length, 'Assemblage du ZIP…');
-      const zb = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 5 } });
-      const d  = new Date();
-      const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-      saveAs(zb, `Export_PDF_${ds}.zip`);
-      setProgress(slice.length, slice.length, 'ZIP téléchargé ✓');
-      showResult('ok', `🎉 ${ok} PDF générés${skip ? ` (${skip} ignorée(s))` : ''}`);
-    } else if (!cancelled) {
-      showResult('err', '❌ Aucun PDF valide généré. Vérifiez le HTML des lignes.');
+      // ÉTAPE 5 : Télécharger le ZIP
+      if (ok > 0) {
+        setProgress(slice.length, slice.length, 'Assemblage du ZIP…');
+        const zb = await zip.generateAsync({ type:'blob', compression:'DEFLATE', compressionOptions:{level:5} });
+        const d  = new Date();
+        const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+        saveAs(zb, `Export_PDF_${ds}.zip`);
+        setProgress(slice.length, slice.length, 'ZIP téléchargé ✓');
+        showResult('ok', `🎉 ${ok} PDF générés${skip ? ` (${skip} ignorée(s))` : ''}`);
+      } else if (!cancelled) {
+        showResult('err', '❌ Aucun PDF valide généré. Vérifiez le HTML des lignes.');
+      }
+
+    } catch (err) {
+      console.error('Erreur génération:', err);
+      showResult('err', `❌ Erreur : ${err.message}`);
+
+      // Restaurer en cas d'erreur aussi
+      try {
+        const restoreActions = rowIds
+          .map((id, i) => ['UpdateRecord', tableId, id, { Modele: oldModeles[i] ?? 0 }]);
+        await grist.docApi.applyUserActions(restoreActions);
+      } catch (_) {}
     }
 
     rz.innerHTML = '';
