@@ -371,15 +371,33 @@
   ════════════════════════════════════════════════ */
   async function resolveImages(container) {
     const imgs = Array.from(container.querySelectorAll('img'));
+    if (!imgs.length) return;
+
+    // Token Grist valide pour contourner le CORS sur les pièces jointes
+    let authToken = null;
+    try {
+      const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
+      authToken = tokenInfo.token;
+    } catch(e) {
+      console.warn('Token Grist indisponible:', e);
+    }
+
     await Promise.all(imgs.map(async img => {
       const src = img.getAttribute('src') || '';
       if (!src || src.startsWith('data:')) return;
       try {
-        const url = src.startsWith('http') ? src : (location.origin + src);
-        const r   = await fetch(url, { credentials: 'include' });
-        if (!r.ok) return;
+        let fetchUrl = src.startsWith('http') ? src : (location.origin + src);
+
+        // Pièce jointe Grist → remplacer le token expiré par le nouveau
+        if (authToken && fetchUrl.includes('/attachments/')) {
+          fetchUrl = fetchUrl.replace(/[?&]auth=[^&]+/, '');
+          fetchUrl += (fetchUrl.includes('?') ? '&' : '?') + 'auth=' + authToken;
+        }
+
+        const r = await fetch(fetchUrl, { credentials: 'include' });
+        if (!r.ok) { console.warn('Image non résolue:', src, r.status); return; }
         img.src = await blobToBase64(await r.blob());
-      } catch (e) { console.warn('Image non résolue:', src); }
+      } catch (e) { console.warn('Image non résolue:', src, e.message); }
     }));
   }
 
@@ -446,7 +464,16 @@
     let curHtml = '';
     let curH    = 0;
 
-    console.log('[paginate] MAX_H=', MAX_H, 'children=', children.length);
+    // Si un seul enfant DIV englobe tout le contenu, descendre dedans
+    if (children.length === 1 && children[0].nodeType === 1 && children[0].nodeName === 'DIV') {
+      const inner = Array.from(children[0].childNodes).filter(n =>
+        n.nodeType === 1 || (n.nodeType === 3 && n.textContent.trim())
+      );
+      if (inner.length > 1) {
+        children.length = 0;
+        inner.forEach(n => children.push(n));
+      }
+    }
 
     for (const child of children) {
       const childHtml = child.outerHTML || child.textContent || '';
@@ -454,7 +481,6 @@
 
       m.innerHTML = childHtml;
       const cH = m.offsetHeight;
-      console.log('[paginate] child=', child.nodeName, 'cH=', cH, 'curH=', curH, 'MAX_H=', MAX_H);
 
       // Tient sur la page courante
       if (curH + cH <= MAX_H) {
