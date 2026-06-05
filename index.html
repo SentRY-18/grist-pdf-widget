@@ -412,17 +412,29 @@
      - Capture chaque page calculée séparément
   ════════════════════════════════════════════════ */
 
-  function paginateHtml(html) {
-    const PAGE_W = 794;
+  /* ════════════════════════════════════════════════
+     PAGINATION — mesure dans la render-zone réelle
+     
+     Clé : le div de mesure est injecté DANS rz avec
+     la classe .editor-preview pour que les styles CSS
+     (font, padding, table borders…) soient identiques
+     au rendu final. Les hauteurs mesurées sont donc
+     exactes et la pagination est correcte.
+  ════════════════════════════════════════════════ */
+
+  function paginateHtml(html, measureZone) {
+    // measureZone = élément déjà dans rz avec class editor-preview
+    // PAGE_H en px non scalé (794 × 297/210)
     const PAGE_H = 1123;
-    const PAD    = 38; // ~10mm padding haut/bas
+    // Marge haute + basse du .editor-preview (padding: 10mm 15mm)
+    // 10mm @ 96dpi ≈ 38px
+    const PAD    = 38;
     const MAX_H  = PAGE_H - PAD * 2;
 
+    // Div de mesure placé dans measureZone (hérite de tous ses styles)
     const m = document.createElement('div');
-    m.style.cssText = 'position:fixed;top:0;left:-9999px;width:' + PAGE_W + 'px;' +
-      'padding:' + PAD + 'px 57px;font-family:sans-serif;font-size:14px;line-height:1.4;' +
-      'color:black;background:white;box-sizing:border-box;visibility:hidden;z-index:-1;';
-    document.body.appendChild(m);
+    m.style.cssText = 'position:absolute;visibility:hidden;top:0;left:0;width:100%;pointer-events:none;';
+    measureZone.appendChild(m);
 
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
@@ -441,12 +453,14 @@
       m.innerHTML = childHtml;
       const cH = m.offsetHeight;
 
+      // Tient sur la page courante
       if (curH + cH <= MAX_H) {
         curHtml += childHtml;
         curH    += cH;
         continue;
       }
 
+      // Tableau → découpage ligne par ligne
       if (child.nodeName === 'TABLE') {
         const chunks = splitTable(child, m, MAX_H, curH);
         if (chunks.length > 0) {
@@ -464,13 +478,14 @@
         continue;
       }
 
+      // Autre élément trop grand → nouvelle page
       if (curHtml.trim()) pages.push(curHtml);
       curHtml = childHtml;
       curH    = cH;
     }
 
     if (curHtml.trim()) pages.push(curHtml);
-    document.body.removeChild(m);
+    measureZone.removeChild(m);
     return pages.length > 0 ? pages : [html];
   }
 
@@ -523,6 +538,8 @@
     const MM_W = 210, MM_H = 297;
     const PAGE_W = 794, PAGE_H = 1123;
 
+    // Préparer la render-zone avec taille libre pour mesurer
+    rz.style.width    = PAGE_W + 'px';
     rz.style.height   = 'auto';
     rz.style.overflow = 'visible';
     rz.innerHTML = `<div class="editor-preview">${html}</div>`;
@@ -532,12 +549,14 @@
     await waitImages(ep, 4000);
     await sleep(300);
 
-    const pages = paginateHtml(ep.innerHTML);
-    const pdf   = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    // Paginer en mesurant dans ep (styles réels appliqués)
+    const pages = paginateHtml(ep.innerHTML, ep);
 
-    rz.style.width    = PAGE_W + 'px';
+    // Passer en fenêtre A4 fixe pour la capture
     rz.style.height   = PAGE_H + 'px';
     rz.style.overflow = 'hidden';
+
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
     for (let p = 0; p < pages.length; p++) {
       if (p > 0) pdf.addPage();
@@ -566,6 +585,7 @@
     rz.innerHTML = '';
     return pdf.output('blob');
   }
+
 
   /* ════════════════════════════════════════════════
      UI HELPERS
