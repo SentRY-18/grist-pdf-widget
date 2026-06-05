@@ -630,7 +630,7 @@
       // correspondent au nouveau modèle (max 30s, poll toutes les 800ms)
       setProgress(0, slice.length, 'Attente du recalcul Grist…');
       let freshRows = null;
-      const maxWait = 30000;
+      const maxWait = 120000;
       const pollInterval = 800;
       const startWait = Date.now();
       
