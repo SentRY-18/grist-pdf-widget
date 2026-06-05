@@ -394,7 +394,9 @@
           fetchUrl += (fetchUrl.includes('?') ? '&' : '?') + 'auth=' + authToken;
         }
 
-        const r = await fetch(fetchUrl, { credentials: 'include' });
+        // Sans credentials car le token JWT est déjà dans l'URL
+        // (credentials:'include' + wildcard CORS = bloqué par le navigateur)
+        const r = await fetch(fetchUrl, { credentials: 'omit' });
         if (!r.ok) { console.warn('Image non résolue:', src, r.status); return; }
         img.src = await blobToBase64(await r.blob());
       } catch (e) { console.warn('Image non résolue:', src, e.message); }
