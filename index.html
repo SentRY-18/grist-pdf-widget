@@ -228,8 +228,6 @@
   let busy          = false;
 
   // Résolveur de mise à jour des données depuis onRecords
-  let pendingRecordsResolve = null;
-
   /* ════════════════════════════════════════════════
      GRIST INIT
   ════════════════════════════════════════════════ */
@@ -249,13 +247,6 @@
     updateStatus();
     $('row-hint').textContent = `— ${mappedRecords.length} ligne(s) disponible(s)`;
     if (!busy) $('endRow').value = mappedRecords.length || 10;
-
-    // Si une génération attend la mise à jour des données, la débloquer
-    if (pendingRecordsResolve) {
-      const fn = pendingRecordsResolve;
-      pendingRecordsResolve = null;
-      fn(records);
-    }
 
     if (!busy) await loadFullTable();
   });
@@ -411,46 +402,167 @@
   }
 
   /* ════════════════════════════════════════════════
-     MOTEUR PDF (translateY)
+     MOTEUR PDF — pagination intelligente
+     
+     Même approche que grist-doc-template :
+     - Mesure la hauteur réelle de chaque élément
+       via un div caché avant toute capture
+     - Découpe les tableaux ligne par ligne sans
+       jamais couper une tr en deux
+     - Capture chaque page calculée séparément
   ════════════════════════════════════════════════ */
+
+  function paginateHtml(html) {
+    const PAGE_W = 794;
+    const PAGE_H = 1123;
+    const PAD    = 38; // ~10mm padding haut/bas
+    const MAX_H  = PAGE_H - PAD * 2;
+
+    const m = document.createElement('div');
+    m.style.cssText = 'position:fixed;top:0;left:-9999px;width:' + PAGE_W + 'px;' +
+      'padding:' + PAD + 'px 57px;font-family:sans-serif;font-size:14px;line-height:1.4;' +
+      'color:black;background:white;box-sizing:border-box;visibility:hidden;z-index:-1;';
+    document.body.appendChild(m);
+
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const children = Array.from(tmp.childNodes).filter(n =>
+      n.nodeType === 1 || (n.nodeType === 3 && n.textContent.trim())
+    );
+
+    const pages = [];
+    let curHtml = '';
+    let curH    = 0;
+
+    for (const child of children) {
+      const childHtml = child.outerHTML || child.textContent || '';
+      if (!childHtml.trim()) continue;
+
+      m.innerHTML = childHtml;
+      const cH = m.offsetHeight;
+
+      if (curH + cH <= MAX_H) {
+        curHtml += childHtml;
+        curH    += cH;
+        continue;
+      }
+
+      if (child.nodeName === 'TABLE') {
+        const chunks = splitTable(child, m, MAX_H, curH);
+        if (chunks.length > 0) {
+          curHtml += chunks[0];
+          pages.push(curHtml);
+          for (let t = 1; t < chunks.length - 1; t++) pages.push(chunks[t]);
+          if (chunks.length > 1) {
+            curHtml = chunks[chunks.length - 1];
+            m.innerHTML = curHtml;
+            curH = m.offsetHeight;
+          } else {
+            curHtml = ''; curH = 0;
+          }
+        }
+        continue;
+      }
+
+      if (curHtml.trim()) pages.push(curHtml);
+      curHtml = childHtml;
+      curH    = cH;
+    }
+
+    if (curHtml.trim()) pages.push(curHtml);
+    document.body.removeChild(m);
+    return pages.length > 0 ? pages : [html];
+  }
+
+  function splitTable(table, measurer, maxH, startH) {
+    const thead     = table.querySelector('thead');
+    const theadHtml = thead ? thead.outerHTML : '';
+
+    let theadH = 0;
+    if (thead) {
+      measurer.innerHTML = '<table style="border-collapse:collapse;width:100%">' + theadHtml + '</table>';
+      theadH = measurer.offsetHeight;
+    }
+
+    const allRows  = Array.from(table.querySelectorAll('tr'));
+    const bodyRows = allRows.filter(r => !thead || !thead.contains(r));
+
+    const attrs = Array.from(table.attributes)
+      .map(a => a.name === 'style'
+        ? 'style="border-collapse:collapse;width:100%;' + a.value + '"'
+        : a.name + '="' + a.value + '"')
+      .join(' ');
+    const tOpen = '<table ' + (attrs || 'style="border-collapse:collapse;width:100%"') + '>';
+
+    const pages = [];
+    let curRows = '';
+    let curH    = startH + theadH;
+
+    for (const row of bodyRows) {
+      const rowHtml = row.outerHTML;
+      measurer.innerHTML = '<table style="border-collapse:collapse;width:100%"><tbody>' + rowHtml + '</tbody></table>';
+      const rH = measurer.offsetHeight;
+
+      if (curH + rH > maxH && curRows.length > 0) {
+        pages.push(tOpen + theadHtml + '<tbody>' + curRows + '</tbody></table>');
+        curRows = '';
+        curH    = theadH;
+      }
+      curRows += rowHtml;
+      curH    += rH;
+    }
+
+    if (curRows.length > 0)
+      pages.push(tOpen + theadHtml + '<tbody>' + curRows + '</tbody></table>');
+
+    return pages.length > 0 ? pages : [table.outerHTML];
+  }
+
   async function htmlToBlob(html) {
     const { jsPDF } = window.jspdf;
-    const RENDER_W  = 794;
     const MM_W = 210, MM_H = 297;
-    const PAGE_H_PX = Math.round(RENDER_W * MM_H / MM_W);
+    const PAGE_W = 794, PAGE_H = 1123;
 
+    rz.style.height   = 'auto';
+    rz.style.overflow = 'visible';
     rz.innerHTML = `<div class="editor-preview">${html}</div>`;
     const ep = rz.firstElementChild;
-    rz.style.height = 'auto'; rz.style.overflow = 'visible';
 
     await resolveImages(ep);
     await waitImages(ep, 4000);
-    await sleep(400);
+    await sleep(300);
 
-    const totalH   = ep.scrollHeight;
-    const numPages = Math.max(1, Math.ceil(totalH / PAGE_H_PX));
-    const pdf      = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    const pages = paginateHtml(ep.innerHTML);
+    const pdf   = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
-    rz.style.height = PAGE_H_PX + 'px';
+    rz.style.width    = PAGE_W + 'px';
+    rz.style.height   = PAGE_H + 'px';
     rz.style.overflow = 'hidden';
 
-    for (let p = 0; p < numPages; p++) {
+    for (let p = 0; p < pages.length; p++) {
       if (p > 0) pdf.addPage();
-      ep.style.transform = `translateY(-${p * PAGE_H_PX}px)`;
-      ep.style.transformOrigin = 'top left';
-      await sleep(60);
+      ep.innerHTML = pages[p];
+      await sleep(80);
 
       const canvas = await html2canvas(rz, {
-        scale:2, useCORS:true, allowTaint:true, logging:false,
-        scrollX:0, scrollY:0, windowWidth:RENDER_W,
-        width:RENDER_W, height:PAGE_H_PX, backgroundColor:'#ffffff'
+        scale:           2,
+        useCORS:         true,
+        allowTaint:      true,
+        logging:         false,
+        scrollX:         0,
+        scrollY:         0,
+        windowWidth:     PAGE_W,
+        width:           PAGE_W,
+        height:          PAGE_H,
+        backgroundColor: '#ffffff'
       });
+
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, MM_W, MM_H, '', 'FAST');
       canvas.width = canvas.height = 1;
     }
 
-    ep.style.transform = '';
-    rz.style.height = 'auto'; rz.style.overflow = 'visible';
+    rz.style.height   = 'auto';
+    rz.style.overflow = 'visible';
     rz.innerHTML = '';
     return pdf.output('blob');
   }
@@ -513,9 +625,52 @@
       setProgress(0, slice.length, 'Application du modèle…');
       await setModeleForRows(rowIds, modeleId);
 
-      // ÉTAPE 2 : Attendre que Grist recalcule les formules HTML
+      // ÉTAPE 2 : Attendre que Grist recalcule TOUTES les formules
+      // On poll fetchTable jusqu'à ce que le Nom_fichier et le HTML
+      // correspondent au nouveau modèle (max 30s, poll toutes les 800ms)
       setProgress(0, slice.length, 'Attente du recalcul Grist…');
-      const updatedRecords = await waitForRecordsUpdate(20000);
+      let freshRows = null;
+      const maxWait = 30000;
+      const pollInterval = 800;
+      const startWait = Date.now();
+      
+      while (Date.now() - startWait < maxWait) {
+        await sleep(pollInterval);
+        try {
+          const raw  = await grist.docApi.fetchTable(tableId);
+          const cols = Object.keys(raw);
+          const n    = raw.id.length;
+          const rows = Array.from({ length: n }, (_, i) => {
+            const r = {}; cols.forEach(c => { r[c] = raw[c][i]; }); return r;
+          });
+          
+          // Vérifier que les lignes de la plage ont bien le nouveau modèle
+          // et que le HTML n'est pas vide
+          const allUpdated = rowIds.every(id => {
+            const row = rows.find(r => r.id === id);
+            if (!row) return false;
+            // Le Modele doit être l'ID sélectionné
+            if (row['Modele'] !== modeleId) return false;
+            // Le HTML doit être non vide
+            const html = row[htmlColKey];
+            if (!html || !html.trim()) return false;
+            return true;
+          });
+          
+          if (allUpdated) {
+            freshRows = rows;
+            // Mettre à jour allTableRows pour le renommage
+            allTableRows = rows;
+            break;
+          }
+        } catch(e) {
+          console.warn('Poll fetchTable erreur:', e);
+        }
+      }
+      
+      if (!freshRows) {
+        throw new Error("Timeout : Grist n'a pas recalculé les formules dans les 30 secondes. Réessayez ou vérifiez vos formules.");
+      }
 
       // ÉTAPE 3 : Générer les PDF avec le HTML recalculé
       const zip  = new JSZip();
@@ -526,8 +681,8 @@
         if (cancelled) { showResult('warn', `⚠️ Annulé après ${ok} PDF générés.`); break; }
 
         const mapped     = slice[i];
-        // Récupère la version mise à jour depuis updatedRecords
-        const updatedRow = updatedRecords.find(r => r.id === mapped.id) || mapped;
+        // Récupère la version fraîche depuis fetchTable
+        const updatedRow = freshRows.find(r => r.id === mapped.id) || mapped;
         const html       = updatedRow[htmlColKey];
 
         if (!html || !html.trim()) {
