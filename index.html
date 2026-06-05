@@ -446,12 +446,15 @@
     let curHtml = '';
     let curH    = 0;
 
+    console.log('[paginate] MAX_H=', MAX_H, 'children=', children.length);
+
     for (const child of children) {
       const childHtml = child.outerHTML || child.textContent || '';
       if (!childHtml.trim()) continue;
 
       m.innerHTML = childHtml;
       const cH = m.offsetHeight;
+      console.log('[paginate] child=', child.nodeName, 'cH=', cH, 'curH=', curH, 'MAX_H=', MAX_H);
 
       // Tient sur la page courante
       if (curH + cH <= MAX_H) {
